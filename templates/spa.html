@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAIN 登录认证系统</title>
+  <link rel="stylesheet" href="/assets/material-1.0.1/material.min.css">
+  <script src="/assets/material-1.0.1/material.min.js"></script>
+  <link rel="stylesheet" href="/assets/material-1.0.1/icons.css">
+</head>
+
+<body style="background-color: #FAFAFA;">
+  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+    <header class="mdl-layout__header">
+      <div class="mdl-layout__header-row">
+        <span class="mdl-layout-title">LAIN 登录认证系统</span>
+        <div class="mdl-layout-spacer"></div>
+        <nav class="mdl-navigation mdl-layout--large-screen-only">
+          <a class="mdl-navigation__link" href="/spa">首页</a>
+          <a class="mdl-navigation__link" href="/apidoc">API文档</a>
+          <a class="mdl-navigation__link" href="/spa/user/logout">退出</a>
+        </nav>
+      </div>
+    </header>
+    <div class="mdl-layout__drawer">
+      <span class="mdl-layout-title">LAIN 登录认证系统</span>
+      <nav class="mdl-navigation">
+        <a class="mdl-navigation__link" href="/spa">首页</a>
+        <a class="mdl-navigation__link" href="/apidoc">API文档</a>
+        <a class="mdl-navigation__link" href="/spa/user/logout">退出</a>
+      </nav>
+    </div>
+
+    <main class="mdl-layout__content" id="sso-spa"></main>
+  </div>
+</body>
+
+<script>
+  window.assets = {
+  };
+</script>
+<script src="{{ assets "javascripts/sso.js" }}"></script>
+</html>

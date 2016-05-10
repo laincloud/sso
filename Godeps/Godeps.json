@@ -1,0 +1,139 @@
+{
+	"ImportPath": "github.com/laincloud/sso",
+	"GoVersion": "go1.6",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/RangelReale/osin",
+			"Rev": "7da44eb917fe702e84fd733dac03707e3ceccc08"
+		},
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.7-30-g4643a7e",
+			"Rev": "4643a7efec9b8fd7548882e7b30095711343100f"
+		},
+		{
+			"ImportPath": "github.com/docker/distribution/context",
+			"Comment": "v2.1.1-104-g1d266b0",
+			"Rev": "1d266b00e1c0575cf2a48dcdf34735228b08c0db"
+		},
+		{
+			"ImportPath": "github.com/docker/distribution/registry/auth",
+			"Comment": "v2.1.1-104-g1d266b0",
+			"Rev": "1d266b00e1c0575cf2a48dcdf34735228b08c0db"
+		},
+		{
+			"ImportPath": "github.com/docker/distribution/uuid",
+			"Comment": "v2.1.1-104-g1d266b0",
+			"Rev": "1d266b00e1c0575cf2a48dcdf34735228b08c0db"
+		},
+		{
+			"ImportPath": "github.com/docker/libtrust",
+			"Rev": "9cbd2a1374f46905c68a4eb3694a130610adc62a"
+		},
+		{
+			"ImportPath": "github.com/getsentry/raven-go",
+			"Rev": "3966f3ab8333308d76b6cc83a29776a266bbdd92"
+		},
+		{
+			"ImportPath": "github.com/go-sql-driver/mysql",
+			"Comment": "v1.2-97-g0cc29e9",
+			"Rev": "0cc29e9fe8e25c2c58cf47bcab566e029bbaa88b"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
+		},
+		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "1c83b3eabd45b6d76072b66b746c20815fb2872d"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "ad4d7a5882b961e07e2626045eb995c022ac6664"
+		},
+		{
+			"ImportPath": "github.com/jmoiron/sqlx",
+			"Comment": "sqlx-v1.1-15-g23a7b78",
+			"Rev": "23a7b787ffc1205098c38f534c4bf3764ae7b713"
+		},
+		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Rev": "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
+		},
+		{
+			"ImportPath": "github.com/mendsley/gojwk",
+			"Rev": "4d5ec6e58103388d6cb0d7d72bc72649be4f0504"
+		},
+		{
+			"ImportPath": "github.com/mijia/sweb/form",
+			"Rev": "169a3affd5ea43b3aaaa81744a0b86ff89e2b3f3"
+		},
+		{
+			"ImportPath": "github.com/mijia/sweb/log",
+			"Rev": "169a3affd5ea43b3aaaa81744a0b86ff89e2b3f3"
+		},
+		{
+			"ImportPath": "github.com/mijia/sweb/render",
+			"Rev": "169a3affd5ea43b3aaaa81744a0b86ff89e2b3f3"
+		},
+		{
+			"ImportPath": "github.com/mijia/sweb/server",
+			"Rev": "169a3affd5ea43b3aaaa81744a0b86ff89e2b3f3"
+		},
+		{
+			"ImportPath": "github.com/oxtoacart/bpool",
+			"Rev": "89c3c7319abbd041bc0a83bdf10bcb8bd445287b"
+		},
+		{
+			"ImportPath": "github.com/paulbellamy/ratecounter",
+			"Rev": "1f4ce68ee3b891b625b7fe6374f61c4d90c8035a"
+		},
+		{
+			"ImportPath": "github.com/pborman/uuid",
+			"Rev": "cccd189d45f7ac3368a0d127efb7f4d08ae0b655"
+		},
+		{
+			"ImportPath": "github.com/stretchr/graceful",
+			"Comment": "v1-9-g49b853e",
+			"Rev": "49b853e77ab58c31be0d3ee87db62909b90ac93e"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Comment": "v1.1.3-6-g6fe211e",
+			"Rev": "6fe211e493929a8aac0469b93f28b1d0688a9a3a"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/vendor/github.com/davecgh/go-spew/spew",
+			"Comment": "v1.1.3-6-g6fe211e",
+			"Rev": "6fe211e493929a8aac0469b93f28b1d0688a9a3a"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/vendor/github.com/pmezard/go-difflib/difflib",
+			"Comment": "v1.1.3-6-g6fe211e",
+			"Rev": "6fe211e493929a8aac0469b93f28b1d0688a9a3a"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/bcrypt",
+			"Rev": "4d48e5fa3d62b5e6e71260571bf76c767198ca02"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Rev": "4d48e5fa3d62b5e6e71260571bf76c767198ca02"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "e0403b4e005737430c05a57aac078479844f919c"
+		},
+		{
+			"ImportPath": "golang.org/x/net/netutil",
+			"Rev": "e0403b4e005737430c05a57aac078479844f919c"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2",
+			"Rev": "2fbf3d7329d847b125188ad64b68cfb1f548938a"
+		}
+	]
+}

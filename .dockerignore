@@ -1,0 +1,5 @@
+node_modules
+# Appended by lain
+.git
+.vagrant
+# end of lain

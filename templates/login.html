@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAIN 登录认证系统</title>
+  <link rel="stylesheet" href="/assets/material-1.0.1/material.min.css">
+  <script src="/assets/material-1.0.1/material.min.js"></script>
+  <link rel="stylesheet" href="/assets/material-1.0.1/icons.css">
+</head>
+
+<body>
+  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+    <header class="mdl-layout__header">
+      <div class="mdl-layout__header-row">
+        <span class="mdl-layout-title">LAIN 登录认证系统</span>
+        <div class="mdl-layout-spacer"></div>
+      </div>
+    </header>
+    <main class="mdl-layout__content">
+      <div style="display: block; padding-top: 48px; width: 320px; margin: 0 auto;">
+
+        <div class="mdl-card mdl-shadow--2dp">
+          <div style="padding: 16px;">
+            <p>{{.ClientName}}正在请求访问您的信息，请确认授权。</p>
+            {{if .Scopes}}
+            <ul>
+              {{range .Scopes}}
+              <li>{{.}}</li>
+              {{end}}
+            </ul>
+            {{end}}
+          </div>
+
+          <div style="padding: 16px;">
+            {{if .Err }}<div style="color: red;">{{.Err}}</div>{{end}}
+            <form action="{{.FormURL}}" method="POST">
+              <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" id="login" name="login" type="text" />
+                <label class="mdl-textfield__label" for="login">用户名</label>
+              </div>
+              <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" id="password" name="password" type="password" />
+                <label class="mdl-textfield__label" for="password">登录密码</label>
+              </div>
+              <div style="text-align: right;">
+                <button class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--colored"
+                   type="submit">
+                  确认授权
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+</body>
+
+</html>

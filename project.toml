@@ -1,0 +1,34 @@
+[package]
+name = "sso"
+version = "0.2"
+authors = [
+    "qiangninghong <qiangninghong@creditease.cn>",
+    "chaoyiwang <chaoyiwang@creditease.cn>",
+]
+builder = "godep"
+build_opts = ["-race"]
+deps = []
+
+[distribution]
+build_opts = []
+pack_extras = ["templates", "assets_map.json", "run.sh", "apidoc", "certs"]
+cross_targets = []
+
+[assets]
+url_prefix = "/assets"
+assets_mapping_json = "assets_map.json"
+image_exts = [".png", ".jpg", ".jpeg", ".gif"]
+deps = [
+    "es5-shim@4.3.0",
+    "react@0.13.3",
+    "react-router@1.0.0-rc1",
+    "history",
+    "lodash@3.10.1",
+    "react-style",
+    "whatwg-fetch@0.10.1",
+    "classnames",
+    "cookie",
+]
+
+[[assets.entry]]
+name = "sso"

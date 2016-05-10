@@ -1,0 +1,36 @@
+appname: sso
+
+build:
+  base: laincloud/centos-lain
+  prepare:
+    version: sso2
+    script:
+      - yum -y update
+      - yum -y install unzip
+      - mkdir -p /go/src/github.com/laincloud/
+      - ln -sf /lain/app /go/src/github.com/laincloud/sso
+      - go get github.com/mijia/gobuildweb
+      - go get github.com/tools/godep
+      - make go-build
+    keep:
+      - node_modules
+  script:
+    - make go-build
+    - unzip -o /lain/app/sso-0.2.zip -d /lain/app
+
+release:
+  dest_base: laincloud/centos-lain
+  copy:
+    - src: /lain/app/sso-0.2/*
+      dest: /lain/app/
+
+web:
+  cmd: ./run.sh
+  port: 80
+  env:
+    - TEMPLATES_PATH=/lain/app/templates
+  secret_files:
+    - secrets
+
+notify:
+  slack: "#sso"
