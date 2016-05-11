@@ -10,26 +10,6 @@
 			"Rev": "7da44eb917fe702e84fd733dac03707e3ceccc08"
 		},
 		{
-			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.8.7-30-g4643a7e",
-			"Rev": "4643a7efec9b8fd7548882e7b30095711343100f"
-		},
-		{
-			"ImportPath": "github.com/docker/distribution/context",
-			"Comment": "v2.1.1-104-g1d266b0",
-			"Rev": "1d266b00e1c0575cf2a48dcdf34735228b08c0db"
-		},
-		{
-			"ImportPath": "github.com/docker/distribution/registry/auth",
-			"Comment": "v2.1.1-104-g1d266b0",
-			"Rev": "1d266b00e1c0575cf2a48dcdf34735228b08c0db"
-		},
-		{
-			"ImportPath": "github.com/docker/distribution/uuid",
-			"Comment": "v2.1.1-104-g1d266b0",
-			"Rev": "1d266b00e1c0575cf2a48dcdf34735228b08c0db"
-		},
-		{
 			"ImportPath": "github.com/docker/libtrust",
 			"Rev": "9cbd2a1374f46905c68a4eb3694a130610adc62a"
 		},
@@ -41,18 +21,6 @@
 			"ImportPath": "github.com/go-sql-driver/mysql",
 			"Comment": "v1.2-97-g0cc29e9",
 			"Rev": "0cc29e9fe8e25c2c58cf47bcab566e029bbaa88b"
-		},
-		{
-			"ImportPath": "github.com/golang/glog",
-			"Rev": "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
-		},
-		{
-			"ImportPath": "github.com/gorilla/context",
-			"Rev": "1c83b3eabd45b6d76072b66b746c20815fb2872d"
-		},
-		{
-			"ImportPath": "github.com/gorilla/mux",
-			"Rev": "ad4d7a5882b961e07e2626045eb995c022ac6664"
 		},
 		{
 			"ImportPath": "github.com/jmoiron/sqlx",
