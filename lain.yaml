@@ -7,8 +7,10 @@ build:
     script:
       - yum -y update
       - yum -y install unzip
-      - mkdir -p /go/src/github.com/laincloud/
-      - ln -sf /lain/app /go/src/github.com/laincloud/sso
+      - mkdir -p $GOPATH/github.com/laincloud/
+      - ln -sf /lain/app $GOPATH/github.com/laincloud/sso
+      - git clone --depth=1 https://github.com/golang/sys.git $GOPATH/golang.org/x/sys # GFW
+      - git clone --depth=1 https://github.com/golang/net.git $GOPATH/golang.org/x/net
       - go get github.com/mijia/gobuildweb
       - go get github.com/tools/godep
       - make go-build
