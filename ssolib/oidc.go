@@ -33,7 +33,7 @@ func CreateIDToken(issuer string, client_id string, sub string, userInfo *UserWi
 	jwt.Claims["aud"] = client_id
 	jwt.Claims["iat"] = now
 	jwt.Claims["exp"] = now + tokenConfig.Expiration
-	jwt.Claims["user_info"] = userInfo
+	jwt.Claims["user_info"] = userInfo.User
 	if nonce != "" {
 		jwt.Claims["nonce"] = nonce
 	}
