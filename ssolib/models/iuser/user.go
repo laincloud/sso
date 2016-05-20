@@ -1,6 +1,12 @@
 package iuser
 
-type UserProfile interface{}
+type UserProfile interface {
+	// UserProfile 的数据可能涉及隐私，所以需要实现如下接口，
+	// 若具体实现不希望暴露对应信息或对应信息为空，则可以返回空值
+	GetName() string
+	GetMobile() string
+	GetEmail() string
+}
 
 type User interface {
 	GetMobile() string

@@ -111,10 +111,22 @@ func (u *User) GetSub() string {
 }
 
 func (u *User) GetProfile() iuser.UserProfile {
-	return UserProfile{
+	return &UserProfile{
 		Name:     u.GetName(),
 		FullName: u.GetFullName(),
 		Email:    u.GetEmail(),
 		Mobile:   u.GetMobile(),
 	}
+}
+
+func (p *UserProfile) GetName() string {
+	return p.Name
+}
+
+func (p *UserProfile) GetEmail() string {
+	return p.Email
+}
+
+func (p *UserProfile) GetMobile() string {
+	return p.Mobile
 }

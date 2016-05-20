@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func CreateIDToken(issuer string, client_id string, sub string, userInfo *UserWithGroups, nonce string, access_token string) (string, error) {
+func CreateIDToken(issuer string, client_id string, sub string, userInfo *UserWithGroups, nonce string, access_token string, scopes []string) (string, error) {
 
 	// get signing method
 	_, sigAlg, err := tokenConfig.privateKey.Sign(strings.NewReader("dummy"), 0)
@@ -33,7 +33,21 @@ func CreateIDToken(issuer string, client_id string, sub string, userInfo *UserWi
 	jwt.Claims["aud"] = client_id
 	jwt.Claims["iat"] = now
 	jwt.Claims["exp"] = now + tokenConfig.Expiration
-	jwt.Claims["user_info"] = userInfo.User
+	//jwt.Claims["user_info"] = userInfo.User
+
+	for _, scope := range scopes {
+		switch scope {
+		case "profile":
+			jwt.Claims["name"] = userInfo.User.GetName()
+		case "email":
+			jwt.Claims["email"] = userInfo.User.GetEmail()
+			// TODO email_verified
+		case "phone":
+			jwt.Claims["phone_number"] = userInfo.User.GetMobile()
+			// TODO phone_number_verified
+		}
+	}
+
 	if nonce != "" {
 		jwt.Claims["nonce"] = nonce
 	}
@@ -74,7 +88,7 @@ func setIDTokenInResponseOutput(ctx context.Context, resp *osin.Response, client
 	userInfo := GetUserWithGroups(ctx, userOb)
 	issuer := mctx.SSOSiteURL.String()
 	sub := userOb.GetSub()
-	idtoken, err := CreateIDToken(issuer, client_id, sub, userInfo, nonce, access_token)
+	idtoken, err := CreateIDToken(issuer, client_id, sub, userInfo, nonce, access_token, strings.Split(resp.Output["scope"].(string), " "))
 	if err != nil {
 		resp.StatusCode = http.StatusInternalServerError
 		resp.Output["id_token"] = ""

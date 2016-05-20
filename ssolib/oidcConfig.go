@@ -29,7 +29,8 @@ type OIDC_Configuration struct {
 	UserInfoEnd           string                      `json:"userinfo_endpoint"`
 	JwksUri               string                      `json:"jwks_uri"`
 	ResponseTypeSupported []osin.AuthorizeRequestType `json:"response_types_supported"`
-	ScopesSupported       []string                    `scopes_supported`
+	ScopesSupported       []string                    `json:"scopes_supported"`
+	ClaimsSupported       []string                    `json:"claims_supported"`
 }
 
 func (s *Server) OidcConfig(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
@@ -54,6 +55,9 @@ func (s *Server) NewOidcConfig(ctx context.Context) *OIDC_Configuration {
 	ret.JwksUri = ssoname + "/oauth2/certs"
 	ret.UserInfoEnd = ssoname + "/oauth2/userinfo"
 	ret.ScopesSupported = []string{"profile", "email", "phone", "openid", "write:app", "read:app", "read:user", "write:user", "write:group", "read:group"}
+
+	//TODO amr
+	ret.ClaimsSupported = []string{"iss", "sub", "aud", "iat", "exp", "name", "email", "phone_number", "nonce", "at_hash"}
 	ret.ResponseTypeSupported = getOAuth2Provider(ctx).Config.AllowedAuthorizeTypes
 	return ret
 }
