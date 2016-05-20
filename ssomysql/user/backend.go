@@ -39,11 +39,13 @@ type UserBack struct {
 	DB *sqlx.DB
 }
 
-func New(dsn string) *UserBack {
+func New(dsn string, adminEmail string, adminPasswd string) *UserBack {
 	db, err := utils.InitMysql(dsn)
 	if err != nil {
 		panic(err)
 	}
+	ADMINEMAIL = adminEmail
+	ADMINPASSWD = adminPasswd
 	return &UserBack{
 		DB: db,
 	}
