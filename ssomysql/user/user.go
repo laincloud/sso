@@ -119,6 +119,13 @@ func (u *User) GetProfile() iuser.UserProfile {
 	}
 }
 
+func (u *User) GetPublicProfile() iuser.UserProfile {
+	return &UserProfile{
+		Name:     u.GetName(),
+		FullName: u.GetFullName(),
+	}
+}
+
 func (p *UserProfile) GetName() string {
 	return p.Name
 }
