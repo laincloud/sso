@@ -9,6 +9,11 @@ import (
 	"github.com/laincloud/sso/ssolib/models/group"
 )
 
+var (
+	ADMINEMAIL  string
+	ADMINPASSWD string
+)
+
 func (ub *UserBack) InitModel(ctx interface{}) {
 	var mctx *models.Context
 
@@ -43,8 +48,8 @@ func (ub *UserBack) InitModel(ctx interface{}) {
 	admin := &User{
 		Name:         "admin",
 		FullName:     "Admin",
-		Email:        sql.NullString{String: "admin@example.com", Valid: true},
-		PasswordHash: []byte("admin"),
+		Email:        sql.NullString{String: ADMINEMAIL, Valid: true},
+		PasswordHash: []byte(ADMINPASSWD),
 	}
 	err = ub.CreateUser(admin, false)
 	if err != nil {

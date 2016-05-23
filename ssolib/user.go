@@ -109,7 +109,7 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 	}
 
 	ret := &UserWithGroups{
-		User:   u.GetProfile(),
+		User:   u.GetPublicProfile(),
 		Groups: groups,
 	}
 	return http.StatusOK, ret

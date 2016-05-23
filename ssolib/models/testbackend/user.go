@@ -26,6 +26,10 @@ func (u *TestUser) GetProfile() (ret iuser.UserProfile) {
 	return
 }
 
+func (u *TestUser) GetPublicProfile() (ret iuser.UserProfile) {
+	return
+}
+
 func (u *TestUser) SetBackend(back iuser.UserBackend) {
 	back.(*TestBackend).Add(u)
 	return

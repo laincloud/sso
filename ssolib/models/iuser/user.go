@@ -19,6 +19,8 @@ type User interface {
 
 	GetProfile() UserProfile
 
+	GetPublicProfile() UserProfile
+
 	// 本接口的实现中，应该有一个属性用来区分不同的后端, 具体逻辑待定
 	// 另一方面，由于在逻辑上，属于不同后端的同一个人在 sso 中被看待为不同的用户，
 	// 所以从逻辑上，我们的 user 的实现是一个 “用户身份” 而非 “用户”

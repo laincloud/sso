@@ -25,7 +25,7 @@ var testBack iuser.UserBackend
 func NewTestHelper(t *testing.T) *TestHelper {
 	ctx := context.Background()
 	mctx := testhelper.NewTestHelper(t).Ctx
-	testBack = user.New(testhelper.GetTestMysqlDSN())
+	testBack = user.New(testhelper.GetTestMysqlDSN(), "admin@example.com", "admin")
 	mctx.Back = testBack
 	ctx = context.WithValue(ctx, "mctx", mctx)
 	ctx = context.WithValue(ctx, "emailSuffix", "@example.com")

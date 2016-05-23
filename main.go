@@ -31,13 +31,17 @@ func main() {
 	flag.StringVar(&prikeyfile, "private", "certs/server.key", "private key file for jwt")
 	flag.StringVar(&pubkeyfile, "public", "certs/server.pem", "public key file for jwt")
 	flag.StringVar(&sentryDSN, "sentry", "http://7:6@sentry.example.com/3", "sentry Data Source Name")
+
+	var adminPasswd, adminEmail string
+	flag.StringVar(&adminPasswd, "adminpassword", "admin", "initial password of admin")
+	flag.StringVar(&adminEmail, "adminemail", "admin@example.com", "email of admin")
 	flag.Parse()
 
 	if isDebug {
 		log.EnableDebug()
 	}
 
-	userback := user.New(mysqlDSN)
+	userback := user.New(mysqlDSN, adminEmail, adminPasswd)
 
 	server := ssolib.NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix, isDebug, prikeyfile, pubkeyfile, sentryDSN)
 
