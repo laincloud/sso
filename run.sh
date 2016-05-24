@@ -9,4 +9,4 @@ source ./secrets
 
 DEBUG=${DEBUG:-"false"}
 
-exec ./sso-0.2.linux.amd64 -domain="@example.com" -from="sso@$DOMAIN" -mysql="$MYSQL" -site="https://sso.$DOMAIN" -smtp="$SMTP" -web=":80" -sentry="$SENTRY" -debug="$DEBUG"
+exec ./sso-0.2.linux.amd64 -domain="@$EMAIL" -from="sso@$DOMAIN" -mysql="$MYSQL" -site="https://sso.$DOMAIN" -smtp="$SMTP" -web=":80" -sentry="$SENTRY" -debug="$DEBUG"
