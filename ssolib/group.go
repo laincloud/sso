@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/mijia/sweb/form"
 	"github.com/mijia/sweb/log"
 	"github.com/mijia/sweb/server"
@@ -156,6 +157,13 @@ func (gr GroupsResource) Post(ctx context.Context, r *http.Request) (int, interf
 			GroupType: req.Backend,
 		})
 		if err != nil {
+			if mysqlError, ok := err.(*mysql.MySQLError); ok {
+				if mysqlError.Number == 1062 {
+					// for "Error 1062: Duplicate entry ..."
+					log.Info(err.Error())
+					return http.StatusConflict, "group already exists"
+				}
+			}
 			panic(err)
 		}
 

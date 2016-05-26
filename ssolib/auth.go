@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/RangelReale/osin"
+	"github.com/go-sql-driver/mysql"
 	"github.com/mijia/sweb/log"
 	"github.com/mijia/sweb/server"
 	"golang.org/x/net/context"
@@ -108,7 +109,17 @@ func (s *Server) AuthorizationEndpoint(ctx context.Context, w http.ResponseWrite
 			if err == iuser.ErrUserNotFound {
 				tmplContextErr = errors.New("No such user")
 			} else {
-				panic(err)
+				if mysqlError, ok := err.(*mysql.MySQLError); ok {
+					if mysqlError.Number == 1267 {
+						// for "Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8_general_ci,COERCIBLE) for operation '='"
+						log.Info(err.Error())
+						tmplContextErr = errors.New("No such user")
+					} else {
+						panic(err)
+					}
+				} else {
+					panic(err)
+				}
 			}
 		} else if ok, _ := ub.AuthPassword(u.GetSub(), password); ok {
 			// TODO 换成更一般的身份认证接口
