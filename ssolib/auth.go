@@ -102,47 +102,70 @@ func (s *Server) AuthorizationEndpoint(ctx context.Context, w http.ResponseWrite
 		login, password := r.FormValue("login"), r.FormValue("password")
 		log.Debugf("sso_debug: sso_oauth_auth api load info from db begin.")
 		ub := getUserBackend(ctx)
-		u, err := ub.GetUserByFeature(login)
-		log.Debug(u)
-		if err != nil {
-			log.Debugf("sso_debug: sso_oauth_auth api load user info from db fail.")
-			if err == iuser.ErrUserNotFound {
-				tmplContextErr = errors.New("No such user")
-			} else {
-				if mysqlError, ok := err.(*mysql.MySQLError); ok {
-					if mysqlError.Number == 1267 {
-						// for "Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8_general_ci,COERCIBLE) for operation '='"
-						log.Info(err.Error())
-						tmplContextErr = errors.New("No such user")
+		if s.queryUser { // for detail errors of login, i.e. "no such user"
+			u, err := ub.GetUserByFeature(login)
+			log.Debug(u)
+			if err != nil {
+				log.Debugf("sso_debug: sso_oauth_auth api load user info from db fail.")
+				if err == iuser.ErrUserNotFound {
+					tmplContextErr = errors.New("No such user")
+				} else {
+					if mysqlError, ok := err.(*mysql.MySQLError); ok {
+						if mysqlError.Number == 1267 {
+							// for "Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8_general_ci,COERCIBLE) for operation '='"
+							log.Info(err.Error())
+							tmplContextErr = errors.New("No such user")
+						} else {
+							panic(err)
+						}
 					} else {
 						panic(err)
 					}
-				} else {
-					panic(err)
 				}
-			}
-		} else if ok, _ := ub.AuthPassword(u.GetSub(), password); ok {
-			// TODO 换成更一般的身份认证接口
-			if res_type == osin.CODE {
-				ar.UserData = oauth2.AuthorizeUserData{UserId: u.GetId()}
-			} else if res_type == osin.TOKEN {
-				ar.UserData = oauth2.AccessUserData{UserId: u.GetId()}
+			} else if ok, _ := ub.AuthPassword(u.GetSub(), password); ok {
+				if res_type == osin.CODE {
+					ar.UserData = oauth2.AuthorizeUserData{UserId: u.GetId()}
+				} else if res_type == osin.TOKEN {
+					ar.UserData = oauth2.AccessUserData{UserId: u.GetId()}
+				} else {
+					panic("unknown response_type and osin didn't handle it")
+				}
+				ar.Authorized = true
+				oauth2p.FinishAuthorizeRequest(resp, r, ar)
+				if oidc {
+					setIDTokenInResponseOutput(ctx, resp, r.Form.Get("client_id"),
+						u.GetId(), r.Form.Get("nonce"), resp.Output["access_token"].(string))
+				}
+				osin.OutputJSON(resp, w, r)
+				log.Debugf("sso_debug: sso_oauth_auth api load info from db end.")
+				return ctx
 			} else {
-				panic("unknown response_type and osin didn't handle it")
+				tmplContextErr = errors.New("incorrect password")
 			}
-			ar.Authorized = true
-			oauth2p.FinishAuthorizeRequest(resp, r, ar)
-			if oidc {
-				setIDTokenInResponseOutput(ctx, resp, r.Form.Get("client_id"),
-					u.GetId(), r.Form.Get("nonce"), resp.Output["access_token"].(string))
-			}
-			osin.OutputJSON(resp, w, r)
 			log.Debugf("sso_debug: sso_oauth_auth api load info from db end.")
-			return ctx
-		} else {
-			tmplContextErr = errors.New("incorrect password")
+		} else { // only gives "no such user or incorrect password "
+			if ok, u, err := ub.AuthPasswordByFeature(login, password); ok {
+				if res_type == osin.CODE {
+					ar.UserData = oauth2.AuthorizeUserData{UserId: u.GetId()}
+				} else if res_type == osin.TOKEN {
+					ar.UserData = oauth2.AccessUserData{UserId: u.GetId()}
+				} else {
+					panic("unknown response_type and osin didn't handle it")
+				}
+				ar.Authorized = true
+				oauth2p.FinishAuthorizeRequest(resp, r, ar)
+				if oidc {
+					setIDTokenInResponseOutput(ctx, resp, r.Form.Get("client_id"),
+						u.GetId(), r.Form.Get("nonce"), resp.Output["access_token"].(string))
+				}
+				osin.OutputJSON(resp, w, r)
+				log.Debugf("sso_debug: sso_oauth_auth api load info from db end.")
+				return ctx
+			} else {
+				log.Debug(err)
+				tmplContextErr = errors.New("user does not exist or password is incorrect")
+			}
 		}
-		log.Debugf("sso_debug: sso_oauth_auth api load info from db end.")
 	}
 
 	appIdString := ar.Client.GetId()

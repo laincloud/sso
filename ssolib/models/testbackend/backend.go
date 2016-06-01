@@ -45,6 +45,10 @@ func (b *TestBackend) AuthPassword(sub, passwd string) (ret bool, err error) {
 	return
 }
 
+func (b *TestBackend) AuthPasswordByFeature(feature, passwd string) (ret bool, u iuser.User, err error) {
+	return
+}
+
 func (b *TestBackend) ListUsers(ctx context.Context) (ret []iuser.User, err error) {
 	return
 }

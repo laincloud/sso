@@ -20,6 +20,7 @@ func main() {
 	var prikeyfile, pubkeyfile string
 	var isDebug bool
 	var sentryDSN string
+	var queryUser bool
 	flag.StringVar(&webAddr, "web", ":14000", "The address which SSO service is listening on")
 	flag.StringVar(&mysqlDSN, "mysql", "user:password@tcp(127.0.0.1:3306)/dbname",
 		"Data source name of mysql connection")
@@ -31,6 +32,7 @@ func main() {
 	flag.StringVar(&prikeyfile, "private", "certs/server.key", "private key file for jwt")
 	flag.StringVar(&pubkeyfile, "public", "certs/server.pem", "public key file for jwt")
 	flag.StringVar(&sentryDSN, "sentry", "http://7:6@sentry.example.com/3", "sentry Data Source Name")
+	flag.BoolVar(&queryUser, "queryuser", true, "when authenticating the end user, whether to check the user exists")
 
 	var adminPasswd, adminEmail string
 	flag.StringVar(&adminPasswd, "adminpassword", "admin", "initial password of admin")
@@ -43,7 +45,7 @@ func main() {
 
 	userback := user.New(mysqlDSN, adminEmail, adminPasswd)
 
-	server := ssolib.NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix, isDebug, prikeyfile, pubkeyfile, sentryDSN)
+	server := ssolib.NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix, isDebug, prikeyfile, pubkeyfile, sentryDSN, queryUser)
 
 	server.SetUserBackend(userback)
 
