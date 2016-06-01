@@ -32,6 +32,7 @@ type UserBackend interface {
 	GetUser(id int) (User, error)
 
 	AuthPassword(sub, password string) (bool, error)
+	AuthPasswordByFeature(feature, password string) (bool, User, error)
 
 	// 下面的方法是为了简单地兼容 sso 原有代码，也许会有很多冗余
 	ListUsers(ctx context.Context) ([]User, error)

@@ -46,10 +46,12 @@ type Server struct {
 	pubkeyfile string
 	sentryDSN  string
 
+	queryUser bool
+
 	userBackend iuser.UserBackend
 }
 
-func NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix string, isDebug bool, prikeyfile string, pubkeyfile string, sentryDSN string) *Server {
+func NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix string, isDebug bool, prikeyfile string, pubkeyfile string, sentryDSN string, queryUser bool) *Server {
 	srv := &Server{
 		mysqlDSN:    mysqlDSN,
 		siteURL:     siteURL,
@@ -60,6 +62,7 @@ func NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix string, isDeb
 		prikeyfile:  prikeyfile,
 		pubkeyfile:  pubkeyfile,
 		sentryDSN:   sentryDSN,
+		queryUser:   queryUser,
 	}
 	return srv
 }

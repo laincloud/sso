@@ -89,6 +89,7 @@ func (ub *UserBack) GetUser(id int) (iuser.User, error) {
 
 func (ub *UserBack) GetUserByName(name string) (iuser.User, error) {
 	user := User{}
+	// TODO sql 注入
 	err := ub.DB.Get(&user, "SELECT * FROM user WHERE name=?", name)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -174,6 +175,10 @@ func (ub *UserBack) AuthPassword(sub, passwd string) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func (ub *UserBack) AuthPasswordByFeature(feature, passwd string) (bool, iuser.User, error) {
+	return false, nil, nil
 }
 
 func (ub *UserBack) GetUserByFeature(f string) (iuser.User, error) {
