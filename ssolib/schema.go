@@ -53,8 +53,10 @@ func ValidateUserEmail(email string, ctx context.Context) error {
 	if !emailPattern.MatchString(email) {
 		return fmt.Errorf("Invalid email: %s", email)
 	}
-	if !strings.HasSuffix(email, getEmailSuffix(ctx)) {
-		return errors.New("Unsupported email")
+	if getEmailSuffix(ctx) != "" && getEmailSuffix(ctx) != "@example.com" {
+		if !strings.HasSuffix(email, getEmailSuffix(ctx)) {
+			return errors.New("Unsupported email")
+		}
 	}
 	return nil
 }
