@@ -22,7 +22,7 @@ deps = [
     "es5-shim@4.3.0",
     "react@0.13.3",
     "react-router@1.0.0-rc1",
-    "history",
+    "history@1.13.1",
     "lodash@3.10.1",
     "react-style",
     "whatwg-fetch@0.10.1",
