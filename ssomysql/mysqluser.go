@@ -13,6 +13,7 @@ import (
 
 	"github.com/laincloud/sso/ssolib"
 	"github.com/laincloud/sso/ssolib/models"
+	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"github.com/laincloud/sso/ssomysql/user"
 )
@@ -33,10 +34,61 @@ func getUserBackend(ctx context.Context) iuser.UserBackend {
 	return ctx.Value("userBackend").(iuser.UserBackend)
 }
 
-/*
-type UsersResource struct {
+type InactiveUsersResource struct {
 	server.BaseResource
-}*/
+}
+
+func (iur InactiveUsersResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+
+	// FIXME 由于 ssolib 中的 requireScope 不可见，所以为了实现简单，
+	// 这里对不符合 scope 的情况直接返回 403 而非重定向。
+	scope := ctx.Value("scope")
+	find := false
+	if scope != nil {
+		scopes := scope.([]string)
+		for _, s := range scopes {
+			if s == "write:user" {
+				find = true
+			}
+		}
+	}
+	if !find {
+		return http.StatusForbidden, `the scope "write:user" is required`
+	}
+
+	mctx := getModelContext(ctx)
+	ub := getUserBackend(ctx)
+
+	isCurrentUserAdmin := false
+	adminsGroup, err := group.GetGroupByName(mctx, "admins")
+	if err != nil {
+		panic(err)
+	}
+	admins, err := adminsGroup.ListMembers(mctx)
+	if err != nil {
+		panic(err)
+	}
+
+	currentUser := ctx.Value("user").(iuser.User)
+
+	for _, admin := range admins {
+		if admin.GetId() == currentUser.GetId() {
+			isCurrentUserAdmin = true
+			break
+		}
+	}
+
+	if !isCurrentUserAdmin {
+		return http.StatusForbidden, "have no permission"
+	}
+
+	InactiveUsers, err := ub.(*user.UserBack).ListInactiveUsers(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	return http.StatusOK, InactiveUsers
+}
 
 func UsersPost(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 
