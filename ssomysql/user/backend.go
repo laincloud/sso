@@ -88,15 +88,19 @@ func (ub *UserBack) ListInactiveUsers(ctx context.Context) ([]UserRegistration, 
 	}
 
 	activeUsers := make(map[string]struct{})
+	activeUserEmails := make(map[string]struct{})
 	for _, u := range users {
 		activeUsers[u.GetName()] = struct{}{}
+		activeUserEmails[u.(*User).GetEmail()] = struct{}{}
 	}
 
 	ret := []UserRegistration{}
 	for _, u := range inactiveUsers {
 		if _, ok := activeUsers[u.Name]; !ok {
-			u.Password = ""
-			ret = append(ret, u)
+			if _, ok := activeUserEmails[u.Email.String]; !ok {
+				u.Password = ""
+				ret = append(ret, u)
+			}
 		}
 	}
 	return ret, nil
