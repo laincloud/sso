@@ -40,7 +40,7 @@ let AdminListUserCard = React.createClass({
                   <tr key={`user-${index}`}>
                     <td className="mdl-data-table__cell--non-numeric">{user.name}</td>
                     <td className="mdl-data-table__cell--non-numeric">{user.email}</td>
-                    <td className="mdl-data-table__cell--non-numeric">
+                    <td className="mdl-data-table__cell--non-numeric" style={this.styles.breaklineTd}>
                       {
                         _.map(user.groups, (group) => {
                           return (
@@ -106,6 +106,19 @@ let AdminListUserCard = React.createClass({
       width: '100%',
       borderLeft: 'none',
       borderRight: 'none',
+    },
+    breaklineTd: {
+      position: 'relative',
+      'vertical-align': 'top',
+      height: '48px',
+      'border-top': '1px solid rgba(0,0,0,.12)',
+      'border-bottom': '1px solid rgba(0,0,0,.12)',
+      padding: '12px 18px 0',
+      'box-sizing': 'border-box',
+      'white-space': 'pre-line',
+      'word-wrap': 'break-word',
+      'table-layout': 'fixed',
+      'word-break': 'break-all',
     },
   }),
 });
