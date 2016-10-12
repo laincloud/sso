@@ -74,6 +74,34 @@ func (ub *UserBack) ListUsers(ctx context.Context) ([]iuser.User, error) {
 	return ret, err
 }
 
+func (ub *UserBack) ListInactiveUsers(ctx context.Context) ([]UserRegistration, error) {
+	users, err := ub.ListUsers(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	inactiveUsers := []UserRegistration{}
+	err = ub.DB.Select(&inactiveUsers, "SELECT * FROM user_register")
+
+	if err != nil {
+		panic(err)
+	}
+
+	activeUsers := make(map[string]struct{})
+	for _, u := range users {
+		activeUsers[u.GetName()] = struct{}{}
+	}
+
+	ret := []UserRegistration{}
+	for _, u := range inactiveUsers {
+		if _, ok := activeUsers[u.Name]; !ok {
+			u.Password = ""
+			ret = append(ret, u)
+		}
+	}
+	return ret, nil
+}
+
 func (ub *UserBack) GetUser(id int) (iuser.User, error) {
 	user := User{}
 	err := ub.DB.Get(&user, "SELECT * FROM user WHERE id=?", id)
