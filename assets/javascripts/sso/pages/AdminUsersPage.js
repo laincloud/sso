@@ -4,6 +4,7 @@ import {History} from 'react-router';
 
 import AdminDeleteUserCard from '../components/AdminDeleteUserCard';
 import AdminListUserCard from '../components/AdminListUserCard';
+import AdminListInactiveUsersCard from '../components/AdminListInactiveUsersCard';
 import AdminAuthorizeMixin from '../components/AdminAuthorizeMixin';
 import {Admin} from '../models/Models';
 
@@ -31,6 +32,14 @@ let AdminUsersPage = React.createClass({
               : <AdminListUserCard ref="userList" token={this.state.token} tokenType={this.state.tokenType} />
           }
         </div>
+
+        <div className="mdl-cell mdl-cell--12-col mdl-cell--8-col-tablet mdl-cell--4-col-phone">
+          {
+            !isValid ? <p>等待认证中……</p>
+              : <AdminListInactiveUsersCard ref="userList" token={this.state.token} tokenType={this.state.tokenType} />
+          }
+        </div>
+
       </div>
     );
   },

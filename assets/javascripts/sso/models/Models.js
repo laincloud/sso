@@ -138,6 +138,22 @@ export let Admin = {
     });
   },
 
+  listInactiveUsers(token, tokenType, callback) {
+    Fetch.json('/api/inactiveusers', 'GET', {token, tokenType}, null, (code, data) => {
+      callback && callback(code === 200 ? data : []);
+    }, (msg) => {
+      callback && callback([]); 
+    });
+  },
+
+  activateUser(activationCode, callback) {
+    Fetch.text(`/api/activateuser?code=${activationCode}`, 'GET', null, null, (code, txt) => {
+      callback && callback(code === 201, code === 201 ? "Successfully activated the user" : txt);
+    }, (msg) => {
+      callback && callback(false, msg); 
+    });
+  },
+
   deleteUser(token, tokenType, username, callback) {
     Fetch.text(`/api/users/${username}`, 'DELETE', {token, tokenType}, null, (code, txt) => {
       callback && callback(code === 204, code === 204 ? "Successfully deleted the user" : txt);
