@@ -64,6 +64,8 @@ func (iur InactiveUsersResource) Get(ctx context.Context, r *http.Request) (int,
 	if err != nil {
 		panic(err)
 	}
+
+	// bug FIXME should be all the group members, not only the direct Members.
 	admins, err := adminsGroup.ListMembers(mctx)
 	if err != nil {
 		panic(err)

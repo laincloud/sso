@@ -410,6 +410,7 @@ func (mr MemberResource) Put(ctx context.Context, r *http.Request) (int, interfa
 				return http.StatusNotFound, "no such username"
 			}
 
+			// bug: FIXME not recusive, should noly be the direct group member.
 			ok, addingUserRole, err := g.GetMember(mctx, u)
 			log.Debug(u, u.GetName())
 			log.Debug(currentUser, currentUser.GetName())

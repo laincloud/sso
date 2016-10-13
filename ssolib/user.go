@@ -136,6 +136,7 @@ func (ur UserResource) Delete(ctx context.Context, r *http.Request) (int, interf
 		if err != nil {
 			panic(err)
 		}
+		// bug FIXME: should be the resursive group member.
 		admins, err := adminsGroup.ListMembers(mctx)
 		if err != nil {
 			panic(err)
