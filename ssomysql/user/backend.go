@@ -74,6 +74,19 @@ func (ub *UserBack) ListUsers(ctx context.Context) ([]iuser.User, error) {
 	return ret, err
 }
 
+func (ub *UserBack) DeleteAllActivationCodes(ctx context.Context) error {
+	tx := ub.DB.MustBegin()
+	_, err1 := tx.Exec("DELETE FROM user_register")
+
+	if err2 := tx.Commit(); err2 != nil {
+		return err2
+	}
+	if err1 != nil {
+		return err1
+	}
+	return nil
+}
+
 func (ub *UserBack) ListInactiveUsers(ctx context.Context) ([]UserRegistration, error) {
 	users, err := ub.ListUsers(ctx)
 	if err != nil {
