@@ -90,6 +90,58 @@ func (iur InactiveUsersResource) Get(ctx context.Context, r *http.Request) (int,
 	return http.StatusOK, InactiveUsers
 }
 
+func (iur InactiveUsersResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
+
+	// FIXME 由于 ssolib 中的 requireScope 不可见，所以为了实现简单，
+	// 这里对不符合 scope 的情况直接返回 403 而非重定向。
+	scope := ctx.Value("scope")
+	find := false
+	if scope != nil {
+		scopes := scope.([]string)
+		for _, s := range scopes {
+			if s == "write:user" {
+				find = true
+			}
+		}
+	}
+	if !find {
+		return http.StatusForbidden, `the scope "write:user" is required`
+	}
+
+	mctx := getModelContext(ctx)
+	ub := getUserBackend(ctx)
+
+	isCurrentUserAdmin := false
+	adminsGroup, err := group.GetGroupByName(mctx, "admins")
+	if err != nil {
+		panic(err)
+	}
+	admins, err := adminsGroup.ListMembers(mctx)
+	if err != nil {
+		panic(err)
+	}
+
+	currentUser := ctx.Value("user").(iuser.User)
+
+	for _, admin := range admins {
+		if admin.GetId() == currentUser.GetId() {
+			isCurrentUserAdmin = true
+			break
+		}
+	}
+
+	if !isCurrentUserAdmin {
+		return http.StatusForbidden, "have no permission"
+	}
+
+	err = ub.(*user.UserBack).DeleteAllActivationCodes(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	return http.StatusNoContent, "All Activation Codes have been deleted"
+}
+
 func UsersPost(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 
 	status, v := func() (int, string) {
