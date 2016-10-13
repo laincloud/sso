@@ -131,24 +131,13 @@ func (ur UserResource) Delete(ctx context.Context, r *http.Request) (int, interf
 			return http.StatusNotFound, "no such user"
 		}
 
-		isCurrentUserAdmin := false
 		adminsGroup, err := group.GetGroupByName(mctx, "admins")
 		if err != nil {
 			panic(err)
 		}
-		// bug FIXME: should be the resursive group member.
-		admins, err := adminsGroup.ListMembers(mctx)
-		if err != nil {
-			panic(err)
-		}
-		for _, admin := range admins {
-			if admin.GetId() == currentUser.GetId() {
-				isCurrentUserAdmin = true
-				break
-			}
-		}
 
-		if !isCurrentUserAdmin {
+		ok, _, _ := adminsGroup.GetMember(mctx, currentUser)
+		if !ok {
 			return http.StatusForbidden, "have no permission"
 		}
 

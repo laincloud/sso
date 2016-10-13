@@ -59,28 +59,14 @@ func (iur InactiveUsersResource) Get(ctx context.Context, r *http.Request) (int,
 	mctx := getModelContext(ctx)
 	ub := getUserBackend(ctx)
 
-	isCurrentUserAdmin := false
 	adminsGroup, err := group.GetGroupByName(mctx, "admins")
 	if err != nil {
 		panic(err)
 	}
 
-	// bug FIXME should be all the group members, not only the direct Members.
-	admins, err := adminsGroup.ListMembers(mctx)
-	if err != nil {
-		panic(err)
-	}
-
 	currentUser := ctx.Value("user").(iuser.User)
-
-	for _, admin := range admins {
-		if admin.GetId() == currentUser.GetId() {
-			isCurrentUserAdmin = true
-			break
-		}
-	}
-
-	if !isCurrentUserAdmin {
+	ok, _, _ := adminsGroup.GetMember(mctx, currentUser)
+	if !ok {
 		return http.StatusForbidden, "have no permission"
 	}
 
