@@ -1,9 +1,12 @@
 import StyleSheet from 'react-style';
 import React from 'react';
+import {History} from 'react-router';
 
 import {Admin} from '../models/Models';
 
 let AdminListAppCard = React.createClass({
+
+  mixins: [History],
 
   getInitialState() {
     return {
@@ -40,7 +43,13 @@ let AdminListAppCard = React.createClass({
                     <td>{app.id}</td>
                     <td className="mdl-data-table__cell--non-numeric">{app.fullname}</td>
                     <td className="mdl-data-table__cell--non-numeric">{app.secret}</td>
-                    <td className="mdl-data-table__cell--non-numeric">{app.admin_group.name}</td>
+                    <td className="mdl-data-table__cell--non-numeric">
+                      {
+                        <a href="javascript:;" key={`group-${app.admin_group.name}`}
+                          style={{ marginRight: 8 }}
+                          onClick={(evt) => this.goGroupDetail(app.admin_group.name)}>{app.admin_group.name}</a>
+                      }
+                    </td>
                     <td className="mdl-data-table__cell--non-numeric">{app.redirect_uri}</td>
                   </tr>
                 );
@@ -62,6 +71,11 @@ let AdminListAppCard = React.createClass({
     Admin.listApplications(token, tokenType, (apps) => {
       this.setState({ apps });
     });  
+  },
+
+  goGroupDetail(name) {
+    const {token, tokenType} = this.props;
+    this.history.pushState({token, tokenType}, `/spa/admin/groups/${name}`);
   },
 
   styles: StyleSheet.create({

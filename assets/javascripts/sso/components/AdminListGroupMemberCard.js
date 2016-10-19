@@ -1,9 +1,12 @@
 import StyleSheet from 'react-style';
 import React from 'react';
+import {History} from 'react-router';
 
 import {Admin} from '../models/Models';
 
 let AdminListGroupMemberCard = React.createClass({
+
+  mixins: [History],
 
   getInitialState() {
     return {
@@ -13,6 +16,14 @@ let AdminListGroupMemberCard = React.createClass({
 
   componentWillMount() {
     this.reload();
+  },
+
+  componentWillReceiveProps(nextProps){
+    const {token, tokenType, group} = nextProps;
+    const group_members = this.state.group_members;
+    Admin.listGroupMembers(group, token, tokenType, (group_members) => {
+      this.setState({ group_members });
+    });
   },
 
   render() {
@@ -34,17 +45,23 @@ let AdminListGroupMemberCard = React.createClass({
           </thead>
           <tbody>
             {
-              this.state.group_members.map((user, index) => {
+              this.state.group_members.map((subgroup, index) => {
                 return (
                   <tr key={`gmember-${index}`}>
-					  <td className="mdl-data-table__cell--non-numeric">{user.name}</td>
-					  <td className="mdl-data-table__cell--non-numeric">{user.fullname}</td>
-
-                    <td className="mdl-data-table__cell--non-numeric">{user.role === "admin" ? "管理员" : "成员"}</td>
                     <td className="mdl-data-table__cell--non-numeric">
                       {
-                        user.role === 'admin' ? null : 
-                          <a href="javascript:;" onClick={(evt) => this.deleteMember(user.name)}>删除</a>
+                        <a href="javascript:;" key={`subgroup-${subgroup.name}`} 
+                          style={{ marginRight: 8 }}
+                          onClick={(evt) => this.goGroupDetail(subgroup.name)}>{subgroup.name}</a>
+                      }
+                    </td>
+					  <td className="mdl-data-table__cell--non-numeric">{subgroup.fullname}</td>
+
+                    <td className="mdl-data-table__cell--non-numeric">{subgroup.role === "admin" ? "管理员" : "成员"}</td>
+                    <td className="mdl-data-table__cell--non-numeric">
+                      {
+                        subgroup.role === 'admin' ? null : 
+                          <a href="javascript:;" onClick={(evt) => this.deleteMember(subgroup.name)}>删除</a>
                       }
                     </td>
                   </tr>
@@ -60,6 +77,11 @@ let AdminListGroupMemberCard = React.createClass({
         </div>
       </div>
     );
+  },
+
+  goGroupDetail(name) {
+    const {token, tokenType} = this.props;
+    this.history.pushState({token, tokenType}, `/spa/admin/groups/${name}`);
   },
 
   deleteMember(name) {

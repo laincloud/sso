@@ -15,6 +15,14 @@ let AdminListMemberCard = React.createClass({
     this.reload();
   },
 
+  componentWillReceiveProps(nextProps){
+    const {token, tokenType, group} = nextProps;
+    const members = this.state.members;
+    Admin.listMembers(group, token, tokenType, (members) => {
+      this.setState({ members });
+    });
+  },
+
   render() {
     const {group} = this.props;
     return (

@@ -13,7 +13,7 @@ let AdminMembersPage = React.createClass({
   mixins: [History, AdminAuthorizeMixin],
 
   componentWillMount() {
-    this.authorize('groups');
+    this.authorize(`groups/${this.getGroupName()}`);
   },
 
   render() {
@@ -24,10 +24,10 @@ let AdminMembersPage = React.createClass({
         <div className="mdl-cell mdl-cell--8-col mdl-cell--8-col-tablet mdl-cell--4-col-phone">
           {
             !isValid ? <p>等待认证中……</p> :
-				[
+			  [
 				<AdminListMemberCard ref="memberList" token={this.state.token} tokenType={this.state.tokenType}
 					group={groupName} />,
-              <AdminListGroupMemberCard ref="groupMemberList" token={this.state.token} tokenType={this.state.tokenType}
+                <AdminListGroupMemberCard ref="groupMemberList" token={this.state.token} tokenType={this.state.tokenType}
 				  group={groupName} />
 			  ]
          }
