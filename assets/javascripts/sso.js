@@ -19,6 +19,7 @@ import AdminAppsPage from './sso/pages/AdminAppsPage';
 import AdminGroupsPage from './sso/pages/AdminGroupsPage';
 import AdminMembersPage from './sso/pages/AdminMembersPage';
 import AdminUsersPage from './sso/pages/AdminUsersPage';
+import QueryUserPage from './sso/pages/QueryUserPage';
 
 let domReady = () => {
   React.initializeTouchEvents(true);
@@ -38,6 +39,7 @@ let domReady = () => {
       <Route path="/spa/admin/groups" component={createElement(AdminGroupsPage)} />
       <Route path="/spa/admin/groups/:name" component={createElement(AdminMembersPage)} />
       <Route path="/spa/admin/users" component={createElement(AdminUsersPage)} />
+      <Route path="/spa/users-query/:name" component={createElement(QueryUserPage)} />
     </Router>
   ), document.getElementById("sso-spa"));
 };

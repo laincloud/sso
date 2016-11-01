@@ -50,7 +50,7 @@ export let Admin = {
   clientId: 1,
   realm: 'SSO-Site',
   secret: 'admin',
-
+  
   listMembers(group, token, tokenType, callback) {
     Fetch.json(`/api/groups/${group}`, 'GET', {token, tokenType}, null, (code, data) => {
       callback && callback(code === 200 ? data.members : []);
@@ -261,6 +261,38 @@ export let Admin = {
     return params.join("&");
   },
 
+};
+
+export let Query={
+  getUserInfo(name, callback){
+    Fetch.json(`/api/users/${name}`, 'GET', null, null, (code, data) => {
+      callback && callback( code === 200 ? this.getGroupAndRole(data, callback) : [] );
+    }, (msg) => {
+      callback && callback([]); 
+    });
+  },
+
+  getGroupAndRole(data, callback){
+    let ret = new Array(data.groups.length);
+    for (let i=0; i < data.groups.length; i++){
+      let group = data.groups[i];
+      ret[i] = new Object;
+      ret[i].name = group;
+      Fetch.json(`/api/groups/${group}`, 'GET', null, null, (code1, data1) => {
+        if (code1 === 200){
+          ret[i].fullname=data1.fullname;
+          callback(ret);
+        }
+      }, (msg) => {false});
+      Fetch.json(`/api/groups/${group}/members/${data.name}`, 'GET', null, null, (code2, data2) => {
+        if (code2 === 200){
+          ret[i].userRole=data2.role;
+          callback(ret);
+        }
+      }, (msg) => {false}); 
+    };
+    return ret;
+  },
 };
 
 let Fetch = {
