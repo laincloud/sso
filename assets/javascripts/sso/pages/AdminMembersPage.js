@@ -26,7 +26,7 @@ let AdminMembersPage = React.createClass({
             !isValid ? <p>等待认证中……</p> :
 			  [
 				<AdminListMemberCard ref="memberList" token={this.state.token} tokenType={this.state.tokenType}
-					group={groupName} />,
+				  group={groupName} />,
                 <AdminListGroupMemberCard ref="groupMemberList" token={this.state.token} tokenType={this.state.tokenType}
 				  group={groupName} />
 			  ]
@@ -38,7 +38,7 @@ let AdminMembersPage = React.createClass({
              [ <AdminNewMemberCard token={this.state.token} tokenType={this.state.tokenType} 
 				 group={groupName} onSucc={this.refresh} />,
               <AdminNewGroupMemberCard token={this.state.token} tokenType={this.state.tokenType} 
-				  group={groupName} onSucc={this.refresh} />]
+				 group={groupName} onSucc={this.refresh} />]
 }
         </div>
       </div>

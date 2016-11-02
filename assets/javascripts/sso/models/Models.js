@@ -215,7 +215,7 @@ export let Admin = {
     if (checkGroup) {
       query['ag'] = checkGroup;
     }
-    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQuery(query)}`;
+    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQueryNotEncoding(query)}`;
     let formData = {
       client_id: this.clientId,
       client_secret: this.secret,
@@ -240,7 +240,7 @@ export let Admin = {
     if (checkGroup) {
       query['ag'] = checkGroup;
     }
-    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQuery(query)}`;
+    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQueryNotEncoding(query)}`;
     let params = {
       response_type: 'code',
       redirect_uri: redirectUrl,
@@ -261,6 +261,13 @@ export let Admin = {
     return params.join("&");
   },
 
+  toQueryNotEncoding(kv) {
+    let params = [];
+    _.forOwn(kv, (value, key) => {
+      params.push(`${key}=${value}`);
+    });
+    return params.join("&");  
+  },
 };
 
 export let Query={
@@ -274,8 +281,10 @@ export let Query={
 
   getGroupAndRole(data, callback){
     let ret = new Array(data.groups.length);
-    for (let i=0; i < data.groups.length; i++){
-      let group = data.groups[i];
+    let sortedGroups = data.groups.concat();
+    sortedGroups.sort();
+    for (let i=0; i < sortedGroups.length; i++){
+      let group = sortedGroups[i];
       ret[i] = new Object;
       ret[i].name = group;
       Fetch.json(`/api/groups/${group}`, 'GET', null, null, (code1, data1) => {
