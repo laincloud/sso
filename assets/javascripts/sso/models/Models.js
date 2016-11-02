@@ -215,7 +215,7 @@ export let Admin = {
     if (checkGroup) {
       query['ag'] = checkGroup;
     }
-    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQuery(query)}`;
+    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQueryNotEncoding(query)}`;
     let formData = {
       client_id: this.clientId,
       client_secret: this.secret,
@@ -240,7 +240,7 @@ export let Admin = {
     if (checkGroup) {
       query['ag'] = checkGroup;
     }
-    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQuery(query)}`;
+    const redirectUrl = `${window.location.protocol}//${window.location.host}/spa/admin/authorize?${this.toQueryNotEncoding(query)}`;
     let params = {
       response_type: 'code',
       redirect_uri: redirectUrl,
@@ -261,6 +261,13 @@ export let Admin = {
     return params.join("&");
   },
 
+  toQueryNotEncoding(kv) {
+    let params = [];
+    _.forOwn(kv, (value, key) => {
+      params.push(`${key}=${value}`);
+    });
+    return params.join("&");  
+  },
 };
 
 export let Query={
