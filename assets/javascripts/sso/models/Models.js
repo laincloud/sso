@@ -281,8 +281,10 @@ export let Query={
 
   getGroupAndRole(data, callback){
     let ret = new Array(data.groups.length);
-    for (let i=0; i < data.groups.length; i++){
-      let group = data.groups[i];
+    let sortedGroups = data.groups.concat();
+    sortedGroups.sort();
+    for (let i=0; i < sortedGroups.length; i++){
+      let group = sortedGroups[i];
       ret[i] = new Object;
       ret[i].name = group;
       Fetch.json(`/api/groups/${group}`, 'GET', null, null, (code1, data1) => {
