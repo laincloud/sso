@@ -14,12 +14,12 @@ var (
 	emailPattern = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$`)
 )
 
-func ValidateSlug(slug string) error {
+func ValidateSlug(slug string, maxLen int) error {
 	if slug == "" {
 		return errors.New("Empty slug")
 	}
 
-	if len(slug) > 32 {
+	if len(slug) > maxLen {
 		return errors.New("Slug too long")
 	}
 

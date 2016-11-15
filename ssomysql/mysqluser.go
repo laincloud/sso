@@ -194,7 +194,7 @@ func (ur *UserRegistration) Validate(ctx context.Context) error {
 	if ur.Name == "" {
 		return errors.New("Empty name")
 	}
-	if err := ssolib.ValidateSlug(ur.Name); err != nil {
+	if err := ssolib.ValidateSlug(ur.Name, 32); err != nil {
 		return err
 	}
 
