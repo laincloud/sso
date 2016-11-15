@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/mijia/sweb/log"
 	"github.com/laincloud/sso/ssolib/models"
 	"github.com/laincloud/sso/ssolib/models/iuser"
+	"github.com/mijia/sweb/log"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 const createGroupTableSQL = `
 CREATE TABLE IF NOT EXISTS ` + "`group`" + ` (
 	id INT NOT NULL AUTO_INCREMENT,
-	name VARCHAR(32) NOT NULL,
+	name VARCHAR(128) NOT NULL,
 	fullname VARCHAR(128) CHARACTER SET utf8 NOT NULL,
 	created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
