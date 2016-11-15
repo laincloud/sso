@@ -258,6 +258,9 @@ func (gr GroupResource) Delete(ctx context.Context, r *http.Request) (int, inter
 
 		g, err := group.GetGroupByName(mctx, groupname)
 		if err != nil {
+			if err == group.ErrGroupNotFound {
+				return http.StatusNotFound, "No such group"
+			}
 			panic(err)
 		}
 
