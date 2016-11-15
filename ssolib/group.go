@@ -65,7 +65,7 @@ func groupFromModel(g *group.Group) *Group {
 }
 
 func (g *Group) Validate() error {
-	if err := ValidateSlug(g.Name); err != nil {
+	if err := ValidateSlug(g.Name, 128); err != nil {
 		return err
 	}
 	if g.FullName != "" {
