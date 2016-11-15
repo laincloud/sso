@@ -246,6 +246,7 @@ func GetGroupRolesOfUser(ctx *models.Context, user iuser.User) ([]GroupRole, err
 	roles := []GroupRole{}
 	mapRoles, err := getGroupRolesRecursivelyOfUser(ctx, user, false)
 	if err != nil {
+		log.Error("strange:", user)
 		panic(err)
 	}
 	sortedGroupIds := []int{}
