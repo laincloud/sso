@@ -18,7 +18,7 @@ let AdminIndexCard = React.createClass({
           <h2 className="mdl-card__title-text">自助服务</h2>
         </div>
         <div className="mdl-card__supporting-text" style={this.styles.supporting}>
-          这里提供了一些应用和群组的管理功能，用户管理属于管理员特供功能，非管理员同学请勿操作，如果有需要，请到C座21层平台组喊一声。
+          这里提供了一些应用和群组的管理功能，用户管理属于管理员特供功能，非管理员同学请勿操作，如果有需要，请联系 LAIN 集群管理员。
         </div>
         
         <div style={{ padding: 8 }}>
