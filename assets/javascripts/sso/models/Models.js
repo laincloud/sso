@@ -50,7 +50,14 @@ export let Admin = {
   clientId: 1,
   realm: 'SSO-Site',
   secret: 'admin',
-  
+
+  checkToken(token,tokenType,callback){
+    Fetch.text(`/api/me`, 'GET', {token,tokenType}, null, (code,data) => {
+      callback && callback(code === 401 ? {} : {token, tokenType});
+    }, (msg) => {
+    });
+  },
+
   listMembers(group, token, tokenType, callback) {
     Fetch.json(`/api/groups/${group}`, 'GET', {token, tokenType}, null, (code, data) => {
       callback && callback(code === 200 ? data.members : []);
@@ -63,7 +70,7 @@ export let Admin = {
     Fetch.json(`/api/groups/${group}`, 'GET', {token, tokenType}, null, (code, data) => {
       callback && callback(code === 200 ? data.group_members : []);
     }, (msg) => {
-      callback && callback([]); 
+      callback && callback([]);
     });
   },
 

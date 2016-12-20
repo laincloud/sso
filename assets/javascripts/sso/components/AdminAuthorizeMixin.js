@@ -1,3 +1,7 @@
+import {Admin} from '../models/Models';
+import Cookie from '../models/Cookie';
+import {kCookieToken} from '../models/Models';
+
 let AdminAuthorizeMixin = {
 
   getInitialState() {
@@ -6,6 +10,18 @@ let AdminAuthorizeMixin = {
       token,
       tokenType,
     };
+  },
+
+  componentWillMount(){
+    const {token, tokenType} = this.state;
+    Admin.checkToken(token, tokenType, this.updateToken)
+  },
+
+  updateToken(newState){
+    if(typeof newState.token === 'undefined'){
+      Cookie.del(kCookieToken);
+      this.setState({token:"", tokenType:""});
+    }
   },
 
   authorize(area, ag) {
