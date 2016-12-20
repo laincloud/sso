@@ -15,6 +15,10 @@ let AdminGroupsPage = React.createClass({
     this.authorize('groups');
   },
 
+  componentDidUpdate(){
+    this.authorize('groups');
+  },
+
   render() {
     const isValid = this.isSessionValid();
     return (

@@ -16,6 +16,10 @@ let AdminMembersPage = React.createClass({
     this.authorize(`groups/${this.getGroupName()}`);
   },
 
+  componentDidUpdate() {
+    this.authorize(`groups/${this.getGroupName()}`);
+  },
+
   render() {
     const isValid = this.isSessionValid();
     const groupName = this.getGroupName();
