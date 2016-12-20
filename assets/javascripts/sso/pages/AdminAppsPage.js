@@ -14,6 +14,10 @@ let AdminAppsPage = React.createClass({
     this.authorize('apps');
   },
 
+  componentDidUpdate() {
+    this.authorize('apps');
+  },
+
   render() {
     const isValid = this.isSessionValid();
     return (

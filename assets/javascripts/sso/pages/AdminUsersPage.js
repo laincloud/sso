@@ -15,6 +15,10 @@ let AdminUsersPage = React.createClass({
     this.authorize('users', 'admins');
   },
 
+  componentDidUpdate() {
+    this.authorize('users', 'admins');
+  },
+
   render() {
     const isValid = this.isSessionValid();
     return (
