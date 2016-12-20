@@ -48,14 +48,14 @@ let AdminListGroupMemberCard = React.createClass({
               this.state.group_members.map((subgroup, index) => {
                 return (
                   <tr key={`gmember-${index}`}>
-                    <td className="mdl-data-table__cell--non-numeric">
+                    <td className="mdl-data-table__cell--non-numeric" style={this.styles.breaklineTd}>
                       {
                         <a href="javascript:;" key={`subgroup-${subgroup.name}`} 
                           style={{ marginRight: 8 }}
                           onClick={(evt) => this.goGroupDetail(subgroup.name)}>{subgroup.name}</a>
                       }
                     </td>
-					  <td className="mdl-data-table__cell--non-numeric">{subgroup.fullname}</td>
+					  <td className="mdl-data-table__cell--non-numeric" style={this.styles.breaklineTd}>{subgroup.fullname}</td>
 
                     <td className="mdl-data-table__cell--non-numeric">{subgroup.role === "admin" ? "管理员" : "成员"}</td>
                     <td className="mdl-data-table__cell--non-numeric">
@@ -109,6 +109,11 @@ let AdminListGroupMemberCard = React.createClass({
       width: '100%',
       borderLeft: 'none',
       borderRight: 'none',
+    },
+    breaklineTd: {
+      whiteSpace: 'pre-line',
+      wordWrap: 'break-word',
+      wordBreak: 'break-word',
     },
   }),
 });

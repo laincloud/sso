@@ -41,7 +41,7 @@ let AdminListGroupCard = React.createClass({
                     <td className="mdl-data-table__cell--non-numeric">
                       <a href="javascript:;" onClick={(evt) => this.goDetail(group.name)}>{group.name}</a>
                     </td>
-                    <td className="mdl-data-table__cell--non-numeric">{group.fullname}</td>
+                    <td className="mdl-data-table__cell--non-numeric" style={this.styles.breaklineTd}>{group.fullname}</td>
                     <td className="mdl-data-table__cell--non-numeric">{group.role === "admin" ? "管理员" : "成员"}</td>
                     <td className="mdl-data-table__cell--non-numeric">
                       {
@@ -98,6 +98,11 @@ let AdminListGroupCard = React.createClass({
       width: '100%',
       borderLeft: 'none',
       borderRight: 'none',
+    },
+    breaklineTd: {
+      whiteSpace: 'pre-line',
+      wordWrap: 'break-word',
+      wordBreak: 'break-word',
     },
   }),
 });
