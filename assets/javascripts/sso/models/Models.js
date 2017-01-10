@@ -42,6 +42,18 @@ export let User = {
     });
   },
 
+  queryUserNameByEmail(email, callback) {
+    Fetch.json(`/api/usernameofemail?email=${email}`, 'GET', null, null, (code, data) => {
+      if (code === 200) {
+        callback && callback(true, `Succeed! ${data.message || data}`);
+      } else {
+        callback && callback(false, `Failed! ${data.error || data.message || data || 'Server got hacked'}`);
+      }
+    }, (msg) => {
+      callback && callback(false, msg); 
+    });
+  },
+
 };
 
 export const kCookieToken = 'SSO_Site_Access';

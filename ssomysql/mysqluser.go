@@ -130,6 +130,52 @@ func (iur InactiveUsersResource) Delete(ctx context.Context, r *http.Request) (i
 	return http.StatusNoContent, "All Activation Codes have been deleted"
 }
 
+func UserOfEmail(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+
+	status, v := func() (int, string) {
+		r.ParseForm()
+		email := r.Form.Get("email")
+
+		if email == "" {
+			return http.StatusBadRequest, "param email is required"
+		}
+		if err := ssolib.ValidateUserEmail(email, ctx); err != nil {
+			return http.StatusBadRequest, "email is not valid"
+		}
+
+		ub := getUserBackend(ctx)
+		u, err := ub.(*user.UserBack).GetUserByEmail(email)
+		if err != nil {
+			if err == iuser.ErrUserNotFound {
+				return http.StatusNotFound, "no such user"
+			}
+			panic(err)
+		}
+
+		return http.StatusOK, u.GetName()
+
+	}()
+
+	var data []byte
+	var err error
+	if status != http.StatusBadRequest && status != http.StatusConflict {
+		data, err = json.MarshalIndent(v, "", "  ")
+	} else {
+		apiError := ssolib.ApiError{v, v}
+		data, err = json.MarshalIndent(apiError, "", "  ")
+	}
+	if err != nil {
+		status = http.StatusInternalServerError
+		data = []byte(err.Error())
+	}
+	data = append(data, '\n')
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(status)
+	w.Write(data)
+	return ctx
+
+}
+
 func UsersPost(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 
 	status, v := func() (int, string) {
