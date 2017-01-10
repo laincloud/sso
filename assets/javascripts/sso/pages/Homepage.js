@@ -5,6 +5,7 @@ import UserRegisterCard from '../components/UserRegisterCard';
 import UserResetPasswordCard from '../components/UserResetPasswordCard';
 import UserResetPasswordByEmailCard from '../components/UserResetPasswordByEmailCard.js';
 import QueryUserCard from '../components/QueryUserCard';
+import QueryUserNameCard from '../components/QueryUserNameCard';
 import AdminIndexCard from '../components/AdminIndexCard';
 
 let Homepage = React.createClass({
@@ -19,6 +20,7 @@ let Homepage = React.createClass({
         <div className="mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--4-col-phone">
           <UserResetPasswordCard />
           <UserResetPasswordByEmailCard />
+          <QueryUserNameCard />
         </div>
 
         <div className="mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--4-col-phone">
