@@ -37,6 +37,13 @@ func (ug *UserWithGroups) MarshalJSON() ([]byte, error) {
 func (s *Server) UsersList(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 	status, obj := requireScope(ctx, "read:user", func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
+
+		adminsGroup, err := group.GetGroupByName(mctx, "admins")
+		if err != nil {
+			panic(err)
+		}
+		isAdmin, _, _ := adminsGroup.GetMember(mctx, u)
+
 		ub := getUserBackend(ctx)
 		// FIXME 增加一个参数，以防数据库里条目过多
 		users, err := ub.ListUsers(ctx)
@@ -60,8 +67,14 @@ func (s *Server) UsersList(ctx context.Context, w http.ResponseWriter, r *http.R
 					groups = append(groups, g.Name)
 				}
 			}
+			var profile iuser.UserProfile
+			if isAdmin {
+				profile = u.GetProfile()
+			} else {
+				profile = u.GetPublicProfile()
+			}
 			ug := &UserWithGroups{
-				User:   u.GetProfile(),
+				User:   profile,
 				Groups: groups,
 			}
 			results[i] = ug
