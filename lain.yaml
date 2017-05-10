@@ -29,6 +29,7 @@ release:
 web:
   cmd: ./run.sh
   port: 80
+  healthcheck: '/'
   env:
     - TEMPLATES_PATH=/lain/app/templates
   secret_files:
