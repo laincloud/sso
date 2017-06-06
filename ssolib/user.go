@@ -181,7 +181,9 @@ func (ur UserResource) Delete(ctx context.Context, r *http.Request) (int, interf
 
 		err = ub.DeleteUser(u)
 		if err != nil {
-			panic(err)
+			// since some backend delete user means delete user from group
+			log.Debug(err)
+			return http.StatusNoContent, "User deleted from groups but " + err.Error()
 		}
 
 		return http.StatusNoContent, "User deleted"
