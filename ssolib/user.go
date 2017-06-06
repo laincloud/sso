@@ -121,8 +121,28 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 		groups[i] = g.Name
 	}
 
+	var profile iuser.UserProfile
+	currentUser := getCurrentUser(ctx)
+	isAdmin := false
+	isSelf := false
+	if currentUser != nil {
+		adminsGroup, err := group.GetGroupByName(mctx, "admins")
+		if err != nil {
+			panic(err)
+		}
+		isAdmin, _, _ = adminsGroup.GetMember(mctx, currentUser)
+		if currentUser.GetName() == u.GetName() {
+			isSelf = true
+		}
+	}
+
+	if currentUser == nil || (!isAdmin && !isSelf) {
+		profile = u.GetPublicProfile()
+	} else {
+		profile = u.GetProfile()
+	}
 	ret := &UserWithGroups{
-		User:   u.GetPublicProfile(),
+		User:   profile,
 		Groups: groups,
 	}
 	return http.StatusOK, ret
@@ -161,7 +181,9 @@ func (ur UserResource) Delete(ctx context.Context, r *http.Request) (int, interf
 
 		err = ub.DeleteUser(u)
 		if err != nil {
-			panic(err)
+			// since some backend delete user means delete user from group
+			log.Debug(err)
+			return http.StatusNoContent, "User deleted from groups but " + err.Error()
 		}
 
 		return http.StatusNoContent, "User deleted"
