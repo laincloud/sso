@@ -2,11 +2,15 @@ sudo: false
 
 services:
   - docker
+  - mysql
 
 language: python
 
 python:
   - "2.7"
+
+before_install:
+  - mysql -e 'CREATE DATABASE sso_test; CREATE USER test@"%" identified by "test"; grant all on sso_test.* to test@"%"; flush privileges;'
 
 install:
   - pip install lain-cli
@@ -15,6 +19,11 @@ script:
   - lain config save-global private_docker_registry registry.lain.local
   - lain build
   - lain test
+  - LAIN_APPNAME=sso
+  - LAIN_IMAGE_VERSION="$(git show -s --format=%ct $TRAVIS_COMMIT)-$TRAVIS_COMMIT"
+  - ci_env=`bash <(curl -s https://codecov.io/env)`
+  - docker run $ci_env --network=host --name sso $LAIN_APPNAME:build-$LAIN_IMAGE_VERSION bash -c "sh test.sh && bash <(curl -s https://codecov.io/bash)"
+
 
 after_success:
   - LAIN_APPNAME=sso

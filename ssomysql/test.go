@@ -30,6 +30,7 @@ func NewTestHelper(t *testing.T) *TestHelper {
 	ctx = context.WithValue(ctx, "mctx", mctx)
 	ctx = context.WithValue(ctx, "emailSuffix", "@example.com")
 	ctx = context.WithValue(ctx, "userBackend", testBack)
+	testBack.(*user.UserBack).InitDatabase()
 
 	th := &TestHelper{
 		T:   t,

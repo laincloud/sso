@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	//	"github.com/laincloud/sso/ssolib/models/iuser"
+	"github.com/laincloud/sso/ssolib/models/app"
+	"github.com/laincloud/sso/ssolib/models/group"
+	"github.com/laincloud/sso/ssolib/models/oauth2"
 	"github.com/laincloud/sso/ssolib/models/testbackend"
 	"github.com/laincloud/sso/ssolib/models/testhelper"
 
@@ -31,6 +34,11 @@ func NewTestHelper(t *testing.T) *TestHelper {
 	ctx = context.WithValue(ctx, "mctx", mctx)
 	ctx = context.WithValue(ctx, "emailSuffix", "@example.com")
 	ctx = context.WithValue(ctx, "userBackend", testBack)
+
+	app.InitDatabase(mctx)
+	group.EnableNestedGroup()
+	group.InitDatabase(mctx)
+	oauth2.InitDatabase(mctx)
 
 	th := &TestHelper{
 		T:   t,

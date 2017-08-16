@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	"golang.org/x/crypto/bcrypt"
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"github.com/laincloud/sso/ssolib/models/testhelper"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var testBack iuser.UserBackend
@@ -19,7 +19,7 @@ func init() {
 func NewTestHelper(t *testing.T) testhelper.TestHelper {
 	th := testhelper.NewTestHelper(t)
 	mctx := th.Ctx
-	testBack = New(testhelper.GetTestMysqlDSN())
+	testBack = New(testhelper.GetTestMysqlDSN(), "admin@example.com", "admin")
 	mctx.Back = testBack
 	testBack.(*UserBack).InitDatabase()
 	return th
