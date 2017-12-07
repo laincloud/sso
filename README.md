@@ -12,4 +12,5 @@ SSO is released under the [MIT license](https://github.com/laincloud/sso/blob/ma
 ### Upgrade from 0.2.0 or older version
 ```
 ALTER TABLE `group` MODIFY name VARCHAR(128) NOT NULL;
+ALTER TABLE app ADD admin_role_id INT NULL DEFAULT -1
 ```
