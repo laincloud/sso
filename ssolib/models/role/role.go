@@ -87,12 +87,16 @@ func CreateRoleWithoutGroup(ctx *models.Context, roleName string, fullName strin
 	// then create a group using a default name ".app${app_id}role$TIMESTAMP-rand(99)"
 	// set the current superId group as admin sub group
 	// then create a role use the roleName and set the parent
+
 	_, err := GetRole(ctx, superId)
 	if err != nil {
 		if err != ErrRoleNotFound {
 			log.Error(err)
 		}
 		return nil, err
+	}
+	if ok := IsLeafRole(ctx, superId); ok {
+		return nil, ErrLeafRoleHasNoSubRole
 	}
 	groupName := getGroupName(appId)
 	g, err := group.CreateGroup(ctx, &group.Group{
