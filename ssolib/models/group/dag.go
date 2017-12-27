@@ -118,6 +118,34 @@ func (g *Group) AddGroupMember(ctx *models.Context, son *Group, role MemberRole)
 	return nil
 }
 
+func (g *Group) AddGroupMemberWithoutLock(ctx *models.Context, son *Group, role MemberRole) error {
+	log.Debug("Try to add group member")
+	err := g.checkValidAndAtom()
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	log.Debug("before search")
+	// first we test if we can add the group
+	// second we add the group or return
+	ok, depthBuffer, err := upDagIsOk(ctx, g.Id, son.Id)
+	log.Debug(ok, depthBuffer, err)
+	if ok {
+		err = writeDepths(ctx, depthBuffer)
+		if err == nil {
+			err = g.addGroupMember(ctx, son, role)
+			return err
+		} else {
+			log.Error(err)
+			panic(err)
+		}
+	} else {
+		return err
+	}
+	return nil
+}
+
 // son must be a son of this group
 func (g *Group) UpdateGroupMemberRole(ctx *models.Context, son *Group, role MemberRole) error {
 	err := g.checkValidAndAtom()

@@ -25,6 +25,7 @@ import (
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"github.com/laincloud/sso/ssolib/models/oauth2"
+	"github.com/laincloud/sso/ssolib/models/role"
 	"github.com/laincloud/sso/ssolib/utils"
 )
 
@@ -142,6 +143,10 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	s.Handle("OPTIONS", "/oauth2/userinfo", "UserInfo", s.UserInfo)
 
 	s.Get("/api/users", "UsersList", s.UsersList)
+
+	s.Post("/api/resourcesdelete", "ResourcesDelete", s.ResourcesDelete)
+	s.Post("/api/rolemembers", "RoleMembers", s.RoleMembers)
+
 	addHandlers(s)
 
 	s.AddRestfulResource("/api/users/:username", "UserResource", UserResource{})
@@ -152,6 +157,13 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	s.AddRestfulResource("/api/groups/:groupname/members/:username",
 		"MemberResource", MemberResource{})
 	s.AddRestfulResource("/api/groups/:groupname/group-members/:sonname", "GroupMemberResource", GroupMemberResource{})
+	s.AddRestfulResource("/api/app_roles", "AppRoleResource", AppRoleResource{})
+	s.AddRestfulResource("/api/resources/:id", "ResourceResource", ResourceResource{})
+	s.AddRestfulResource("/api/resources", "ResourcesResource", ResourcesResource{})
+	s.AddRestfulResource("/api/roles", "RolesResource", RolesResource{})
+	s.AddRestfulResource("/api/roles/:id", "RoleResource", RoleResource{})
+	s.AddRestfulResource("/api/roles/:id/members/:username", "RoleMemberResource", RoleMemberResource{})
+	s.AddRestfulResource("/api/roles/:id/resources/:resource_id", "RoleResourceResource", RoleResourceResource{})
 
 	puk, prk, err := loadCertAndKey(s.pubkeyfile, s.prikeyfile)
 	if err != nil {
@@ -206,6 +218,7 @@ func (s *Server) initDatabase(mctx *models.Context) {
 	oauth2.InitDatabase(mctx)
 	group.InitDatabase(mctx)
 	app.InitDatabase(mctx)
+	role.InitDatabase(mctx)
 }
 
 func (s *Server) adaptResourceHandler(handler server.ResourceHandler) server.Handler {

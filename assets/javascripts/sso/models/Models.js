@@ -265,7 +265,7 @@ export let Admin = {
       redirect_uri: redirectUrl,
       realm: this.realm,
       client_id: this.clientId,
-      scope: 'write:app read:app read:user write:user write:group read:group',
+      scope: 'write:app read:app read:user write:user write:group read:group write:role read:role write:resource read:resource',
       state: Math.random(),
     };
     const oauthUrl = `${window.location.protocol}//${window.location.host}/oauth2/auth?${this.toQuery(params)}`;

@@ -269,7 +269,7 @@ func GetGroupRolesOfUser(ctx *models.Context, user iuser.User) ([]GroupRole, err
 	return roles, nil
 }
 
-func getGroupRolesDirectlyOfUser(ctx *models.Context, user iuser.User) ([]GroupRole, error) {
+func GetGroupRolesDirectlyOfUser(ctx *models.Context, user iuser.User) ([]GroupRole, error) {
 	groupRoles, err := getSSOLIBGroupRolesDirectlyOfUser(ctx, user)
 	ub := ctx.Back
 	var bGroups []iuser.BackendGroup
@@ -442,7 +442,7 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly 
 	l := list.New()
 	ret := make(map[int]MemberRole)
 	if adminOnly {
-		groupRoles, err := getGroupRolesDirectlyOfUser(ctx, user)
+		groupRoles, err := GetGroupRolesDirectlyOfUser(ctx, user)
 		if err != nil {
 			return nil, err
 		}

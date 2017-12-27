@@ -21,6 +21,9 @@ var (
 	ErrAppNotFound = errors.New("App not found")
 )
 
+// if the role_id is the group_id, the role tree is belong to this app,
+// otherwise the app only uses the role tree which is created by another
+// app's admins.
 var createAppTableSQL = `
 CREATE TABLE IF NOT EXISTS app (
 	id INT NOT NULL AUTO_INCREMENT,
@@ -28,6 +31,7 @@ CREATE TABLE IF NOT EXISTS app (
 	secret VARBINARY(22) NOT NULL,
 	redirect_uri VARCHAR(256) NOT NULL,
 	admin_group_id INT NULL DEFAULT NULL,
+	admin_role_id INT NULL DEFAULT -1,
 	created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (id)
@@ -43,6 +47,7 @@ type App struct {
 	Secret       string
 	RedirectUri  string `db:"redirect_uri"`
 	AdminGroupId int    `db:"admin_group_id"`
+	AdminRoleId  int    `db:"admin_role_id"`
 	Created      string
 	Updated      string
 }

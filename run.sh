@@ -2,7 +2,9 @@
 
 # TODO: remove sleep after lain has a more stable calico ip allocation
 
-sleep 5
+cd /lain/app
+
+sleep 1
 
 DOMAIN=${LAIN_DOMAIN:-"example.com"}
 source ./secrets
