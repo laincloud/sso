@@ -311,7 +311,7 @@ func DeleteRole(ctx *models.Context, id int) error {
 	subRoles, err := getSubRoles(ctx, id)
 	if err == ErrLeafRoleHasNoSubRole {
 		subRoles = []*Role{}
-	} else {
+	} else if err != nil {
 		return err
 	}
 
