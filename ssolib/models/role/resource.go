@@ -41,8 +41,8 @@ type Resource struct {
 }
 
 type RoleResources struct {
-	RoleId    int
-	Resources []Resource
+	RoleId    int        `json:"role_id"`
+	Resources []Resource `json:"resources"`
 }
 
 func CreateResource(ctx *models.Context, resource *Resource) (*Resource, error) {
