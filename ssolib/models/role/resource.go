@@ -30,14 +30,14 @@ var (
 )
 
 type Resource struct {
-	Id          int
-	Name        string
-	Description string `db:"fullname"`
-	AppId       int    `db:"app_id"`
-	Data        string
-	Owner       string
-	Created     string
-	Updated     string
+	Id          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `db:"fullname" json:"description"`
+	AppId       int    `db:"app_id" json:"app_id"`
+	Data        string `json:"data"`
+	Owner       string `json:"owner"`
+	Created     string `json:"created"`
+	Updated     string `json:"updated"`
 }
 
 type RoleResources struct {
