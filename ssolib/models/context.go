@@ -10,10 +10,12 @@ import (
 )
 
 type Context struct {
-	DB         *sqlx.DB
-	SSOSiteURL *url.URL
-	SMTPAddr   string
-	EmailFrom  string
+	DB                *sqlx.DB
+	SSOSiteURL        *url.URL
+	SMTPAddr          string
+	EmailFrom         string
+	EmailFromPassword string
+	EmailTLS          bool
 
 	// 支持多后端要改为数组？
 	Back iuser.UserBackend

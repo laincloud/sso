@@ -2,10 +2,12 @@ package user
 
 import (
 	"crypto/rand"
+	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net"
 	"net/smtp"
 	"net/url"
 	"strings"
@@ -39,11 +41,86 @@ CREATE TABLE IF NOT EXISTS user_register (
 var (
 	compareHashAndPassword   = bcrypt.CompareHashAndPassword
 	generateHashFromPassword = bcrypt.GenerateFromPassword
-	SendMail                 = smtp.SendMail
 
 	ErrUserExists   = errors.New("User already exists")
 	ErrCodeNotFound = errors.New("Code not found")
 )
+
+func sendMailUsingTLS(addr string, auth smtp.Auth, from string,
+	to []string, msg []byte) (err error) {
+
+	host, _, _ := net.SplitHostPort(addr)
+
+	tlsconfig := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         host,
+	}
+	//create smtp client
+	conn, err := tls.Dial("tcp", addr, tlsconfig)
+
+	if err != nil {
+		log.Warnf("tls.Dail: %s", err.Error())
+		return err
+	}
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		log.Warnf("create SMTP client: %s", err.Error())
+		return err
+	}
+
+	defer c.Close()
+
+	if auth != nil {
+		if ok, _ := c.Extension("AUTH"); ok {
+			if err = c.Auth(auth); err != nil {
+				log.Warnf("Error during AUTH: %s", err.Error())
+				return err
+			}
+		}
+	}
+
+	if err = c.Mail(from); err != nil {
+		return err
+	}
+
+	for _, addr := range to {
+		if err = c.Rcpt(addr); err != nil {
+			return err
+		}
+	}
+
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(msg)
+	if err != nil {
+		return err
+	}
+
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+
+	return c.Quit()
+}
+
+func GenericSendMail(ctx *models.Context, to []string, msg []byte) (err error) {
+	var auth smtp.Auth
+	host, _, _ := net.SplitHostPort(ctx.SMTPAddr)
+
+	if ctx.EmailFromPassword != "" {
+		auth = smtp.PlainAuth("", ctx.EmailFrom, ctx.EmailFromPassword, host)
+	}
+	if ctx.EmailTLS == false {
+		err = smtp.SendMail(ctx.SMTPAddr, auth, ctx.EmailFrom, to, msg)
+	} else {
+		err = sendMailUsingTLS(ctx.SMTPAddr, auth, ctx.EmailFrom, to, msg)
+	}
+	return err
+}
 
 type UserRegistration struct {
 	Id             int
@@ -173,7 +250,7 @@ func sendActivationEmail(ctx *models.Context, username, email string, code strin
 		log.Warnf("No smtp server configured.  Skip sending email %s", msg)
 		return nil
 	}
-	err := SendMail(ctx.SMTPAddr, nil, ctx.EmailFrom, []string{email}, msg)
+	err := GenericSendMail(ctx, []string{email}, msg)
 	return err
 }
 

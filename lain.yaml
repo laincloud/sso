@@ -1,9 +1,9 @@
 appname: sso
 
 build:
-  base: laincloud/centos-lain
+  base: laincloud/centos-lain:20180103
   prepare:
-    version: sso2
+    version: 201801041503
     script:
       - yum -y update
       - yum -y install unzip

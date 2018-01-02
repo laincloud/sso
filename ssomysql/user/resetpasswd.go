@@ -59,7 +59,7 @@ func sendResetPasswordEmail(ctx *models.Context, user *User, code string) error 
 		return nil
 	}
 
-	err := SendMail(ctx.SMTPAddr, nil, ctx.EmailFrom, []string{user.Email.String}, msg)
+	err := GenericSendMail(ctx, []string{user.Email.String}, msg)
 	return err
 }
 

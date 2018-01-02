@@ -36,12 +36,14 @@ type Server struct {
 	*server.Server
 	render *render.Render
 
-	mysqlDSN    string
-	siteURL     string
-	smtpAddr    string
-	emailFrom   string
-	emailSuffix string
-	isDebug     bool
+	mysqlDSN          string
+	siteURL           string
+	smtpAddr          string
+	emailFrom         string
+	emailFromPassword string
+	emailTLS          bool
+	emailSuffix       string
+	isDebug           bool
 
 	prikeyfile string
 	pubkeyfile string
@@ -52,18 +54,22 @@ type Server struct {
 	userBackend iuser.UserBackend
 }
 
-func NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix string, isDebug bool, prikeyfile string, pubkeyfile string, sentryDSN string, queryUser bool) *Server {
+func NewServer(
+	mysqlDSN, siteURL, smtpAddr, emailFrom, emailFromPassword, emailSuffix string,
+	emailTLS, isDebug bool, prikeyfile string, pubkeyfile string, sentryDSN string, queryUser bool) *Server {
 	srv := &Server{
-		mysqlDSN:    mysqlDSN,
-		siteURL:     siteURL,
-		smtpAddr:    smtpAddr,
-		emailFrom:   emailFrom,
-		emailSuffix: emailSuffix,
-		isDebug:     isDebug,
-		prikeyfile:  prikeyfile,
-		pubkeyfile:  pubkeyfile,
-		sentryDSN:   sentryDSN,
-		queryUser:   queryUser,
+		mysqlDSN:          mysqlDSN,
+		siteURL:           siteURL,
+		smtpAddr:          smtpAddr,
+		emailFrom:         emailFrom,
+		emailFromPassword: emailFromPassword,
+		emailTLS:          emailTLS,
+		emailSuffix:       emailSuffix,
+		isDebug:           isDebug,
+		prikeyfile:        prikeyfile,
+		pubkeyfile:        pubkeyfile,
+		sentryDSN:         sentryDSN,
+		queryUser:         queryUser,
 	}
 	return srv
 }
@@ -94,12 +100,14 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	dLock := lock.New(s.mysqlDSN, "groupdag")
 
 	mctx := &models.Context{
-		DB:         db,
-		SSOSiteURL: siteURL,
-		SMTPAddr:   s.smtpAddr,
-		EmailFrom:  s.emailFrom,
-		Back:       s.userBackend,
-		Lock:       dLock,
+		DB:                db,
+		SSOSiteURL:        siteURL,
+		SMTPAddr:          s.smtpAddr,
+		EmailFrom:         s.emailFrom,
+		EmailFromPassword: s.emailFromPassword,
+		EmailTLS:          s.emailTLS,
+		Back:              s.userBackend,
+		Lock:              dLock,
 	}
 
 	s.initDatabase(mctx)

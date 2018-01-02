@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"os"
 	"runtime"
+	"strings"
 
 	"github.com/mijia/sweb/log"
 
@@ -16,9 +18,10 @@ func init() {
 }
 
 func main() {
-	var webAddr, mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix string
+	var webAddr, mysqlDSN, siteURL, smtpAddr, emailUserPassword, emailFrom, emailPassword, emailSuffix string
 	var prikeyfile, pubkeyfile string
 	var isDebug bool
+	var emailtls bool
 	var sentryDSN string
 	var queryUser bool
 	flag.StringVar(&webAddr, "web", ":14000", "The address which SSO service is listening on")
@@ -26,7 +29,8 @@ func main() {
 		"Data source name of mysql connection")
 	flag.StringVar(&siteURL, "site", "http://sso.example.com", "Base URL of SSO site")
 	flag.StringVar(&smtpAddr, "smtp", "mail.example.com:25", "SMTP address for sending mail")
-	flag.StringVar(&emailFrom, "from", "sso@example.com", "Email address to send register mail from")
+	flag.StringVar(&emailUserPassword, "from", "sso@example.com", "Email address and password to send register mail from, format: email[:password]")
+	flag.BoolVar(&emailtls, "emailtls", false, "enable TLS when send email.")
 	flag.StringVar(&emailSuffix, "domain", "@example.com", "Valid email suffix")
 	flag.BoolVar(&isDebug, "debug", false, "Debug mode switch")
 	flag.StringVar(&prikeyfile, "private", "certs/server.key", "private key file for jwt")
@@ -43,9 +47,20 @@ func main() {
 		log.EnableDebug()
 	}
 
+	parts := strings.Split(emailUserPassword, ":")
+	if len(parts) == 1 {
+		emailFrom = parts[0]
+	} else if len(parts) == 2 {
+		emailFrom, emailPassword = parts[0], parts[1]
+	} else {
+		log.Errorf("invalid from value")
+		os.Exit(-1)
+	}
 	userback := user.New(mysqlDSN, adminEmail, adminPasswd)
 
-	server := ssolib.NewServer(mysqlDSN, siteURL, smtpAddr, emailFrom, emailSuffix, isDebug, prikeyfile, pubkeyfile, sentryDSN, queryUser)
+	server := ssolib.NewServer(
+		mysqlDSN, siteURL, smtpAddr, emailFrom, emailPassword, emailSuffix,
+		emailtls, isDebug, prikeyfile, pubkeyfile, sentryDSN, queryUser)
 
 	server.SetUserBackend(userback)
 
