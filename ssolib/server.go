@@ -75,7 +75,7 @@ func (s *Server) SetUserBackend(ub iuser.UserBackend) {
 func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	group.EnableNestedGroup()
-	group.SetMaxDepth(4)
+	//	group.SetMaxDepth(4)
 
 	db, err := utils.InitMysql(s.mysqlDSN)
 	if err != nil {
