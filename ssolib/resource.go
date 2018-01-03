@@ -284,6 +284,10 @@ func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int,
 			if err := role.RemoveRoleResource(mctx, id, req.Resources); err!= nil {
 				return http.StatusBadRequest, err
 			}
+		case "update":
+			if err := role.UpdateRoleResource(mctx, id, req.Resources); err!= nil {
+				return http.StatusBadRequest, err
+			}
 		default:
 			return http.StatusBadRequest, "action should be either add or delete"
 		}

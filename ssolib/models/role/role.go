@@ -491,6 +491,27 @@ func AddRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error 
 	return nil
 }
 
+func UpdateRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
+	tx := ctx.DB.MustBegin()
+	_, err0 := tx.Exec("DELETE FROM role_resource WHERE role_id=?", roleId)
+	if err0 != nil {
+		return err0
+	}
+	for _, rId := range resourcesIds {
+		_, err1 := tx.Exec(
+			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
+			roleId, rId)
+		if err1 != nil {
+			return err1
+		}
+	} 
+	err2 := tx.Commit()
+	if err2 != nil {
+		return err2
+	}
+	return nil
+}
+
 func IsLeafRole(ctx *models.Context, roleId int) bool {
 	log.Debug(roleId)
 	rows, err := ctx.DB.Query("SELECT resource_id FROM role_resource WHERE role_id=?", roleId)
