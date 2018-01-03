@@ -236,55 +236,12 @@ type RoleResourceResource struct {
 	server.BaseResource
 }
 
-func (rrr RoleResourceResource) Put(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
-		mctx := getModelContext(ctx)
-
-		roleId := params(ctx, "id")
-		if roleId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(roleId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-
-		resourceId := params(ctx, "resource_id")
-		if resourceId == "" {
-			return http.StatusBadRequest, "resource id required"
-		}
-		rId, err := strconv.Atoi(resourceId)
-		if err != nil {
-			return http.StatusBadRequest, "resource id invalid"
-		}
-
-		modifyRole, err := role.GetRole(mctx, id)
-		if err != nil {
-			if err == role.ErrRoleNotFound {
-				return http.StatusBadRequest, "role not found"
-			}
-			panic(err)
-		}
-
-		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, modifyRole.AppId); ok {
-			if roleType != group.ADMIN {
-				return http.StatusForbidden, ErrNotAdmin
-			}
-		} else {
-			return http.StatusForbidden, ErrNotAdmin
-		}
-
-		if err := role.AddRoleResource(mctx, id, rId); err != nil {
-			return http.StatusBadRequest, err
-		} else {
-			return http.StatusOK, ""
-		}
-
-	})
-
+type RoleResourceReq struct {
+	Action string
+	Resources []int `json:"resource_list"`
 }
 
-func (rrr RoleResourceResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
+func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
 
@@ -296,14 +253,10 @@ func (rrr RoleResourceResource) Delete(ctx context.Context, r *http.Request) (in
 		if err != nil {
 			return http.StatusBadRequest, "role id invalid"
 		}
-
-		resourceId := params(ctx, "resource_id")
-		if resourceId == "" {
-			return http.StatusBadRequest, "resource id required"
-		}
-		rId, err := strconv.Atoi(resourceId)
-		if err != nil {
-			return http.StatusBadRequest, "resource id invalid"
+		
+		req := RoleResourceReq{}
+		if err := form.ParamBodyJson(r, &req); err != nil || len(req.Resources) < 1 {
+			return http.StatusBadRequest, "body json invalid"
 		}
 
 		modifyRole, err := role.GetRole(mctx, id)
@@ -322,12 +275,19 @@ func (rrr RoleResourceResource) Delete(ctx context.Context, r *http.Request) (in
 			return http.StatusForbidden, ErrNotAdmin
 		}
 
-		if err := role.RemoveRoleResource(mctx, id, rId); err != nil {
-			return http.StatusBadRequest, err
-		} else {
-			return http.StatusNoContent, ""
+		switch req.Action {
+		case "add":
+			if err := role.AddRoleResource(mctx, id, req.Resources); err != nil {
+				return http.StatusBadRequest, err
+			}
+		case "delete":
+			if err := role.RemoveRoleResource(mctx, id, req.Resources); err!= nil {
+				return http.StatusBadRequest, err
+			}
+		default:
+			return http.StatusBadRequest, "action should be either add or delete"
 		}
-
+		return http.StatusNoContent, ""
 	})
 
 }

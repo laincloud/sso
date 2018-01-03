@@ -472,17 +472,19 @@ func IsUserInRole(ctx *models.Context, user iuser.User, role *Role) (bool, group
 	return ok, t
 }
 
-func AddRoleResource(ctx *models.Context, roleId int, resourceId int) error {
+func AddRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
 	// only leaf role can have resources
 
 	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
-		"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
-		roleId, resourceId)
+	for _, rId := range resourcesIds {
+		_, err1 := tx.Exec(
+			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
+			roleId, rId)
+		if err1 != nil {
+			return err1
+		}
+	} 
 	err2 := tx.Commit()
-	if err1 != nil {
-		return err1
-	}
 	if err2 != nil {
 		return err2
 	}
@@ -518,15 +520,17 @@ func IsLeafRole(ctx *models.Context, roleId int) bool {
 	return true
 }
 
-func RemoveRoleResource(ctx *models.Context, roleId int, resourceId int) error {
+func RemoveRoleResource(ctx *models.Context, roleId int, resourceIds []int) error {
 	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM role_resource WHERE role_id=? AND resource_id=?",
-		roleId, resourceId)
+	for _, rId := range resourceIds {
+		_, err1 := tx.Exec("DELETE FROM role_resource WHERE role_id=? AND resource_id=?",
+			roleId, rId)
+		if err1 != nil {
+			return err1
+		}
+	}
 	if err2 := tx.Commit(); err2 != nil {
 		return err2
-	}
-	if err1 != nil {
-		return err1
 	}
 	return nil
 }
