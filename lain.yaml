@@ -27,7 +27,7 @@ release:
       dest: /lain/app/
 
 web:
-  cmd: ./run.sh
+  cmd: /lain/app/run.sh
   port: 80
   healthcheck: '/'
   env:

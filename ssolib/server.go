@@ -75,7 +75,7 @@ func (s *Server) SetUserBackend(ub iuser.UserBackend) {
 func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	group.EnableNestedGroup()
-	group.SetMaxDepth(4)
+	//	group.SetMaxDepth(4)
 
 	db, err := utils.InitMysql(s.mysqlDSN)
 	if err != nil {
@@ -163,7 +163,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	s.AddRestfulResource("/api/roles", "RolesResource", RolesResource{})
 	s.AddRestfulResource("/api/roles/:id", "RoleResource", RoleResource{})
 	s.AddRestfulResource("/api/roles/:id/members/:username", "RoleMemberResource", RoleMemberResource{})
-	s.AddRestfulResource("/api/roles/:id/resources/:resource_id", "RoleResourceResource", RoleResourceResource{})
+	s.AddRestfulResource("/api/roles/:id/resources", "RoleResourceResource", RoleResourceResource{})
 
 	puk, prk, err := loadCertAndKey(s.pubkeyfile, s.prikeyfile)
 	if err != nil {

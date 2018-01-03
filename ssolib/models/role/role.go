@@ -87,12 +87,16 @@ func CreateRoleWithoutGroup(ctx *models.Context, roleName string, fullName strin
 	// then create a group using a default name ".app${app_id}role$TIMESTAMP-rand(99)"
 	// set the current superId group as admin sub group
 	// then create a role use the roleName and set the parent
+
 	_, err := GetRole(ctx, superId)
 	if err != nil {
 		if err != ErrRoleNotFound {
 			log.Error(err)
 		}
 		return nil, err
+	}
+	if ok := IsLeafRole(ctx, superId); ok {
+		return nil, ErrLeafRoleHasNoSubRole
 	}
 	groupName := getGroupName(appId)
 	g, err := group.CreateGroup(ctx, &group.Group{
@@ -223,7 +227,7 @@ func UpdateRole(ctx *models.Context, id int, name string, fullname string, paren
 
 				// TODO check error and rollback
 				g.RemoveGroupMemberWithoutLock(ctx, sonG)
-				g.AddGroupMember(ctx, newSonG, group.ADMIN)
+				g.AddGroupMemberWithoutLock(ctx, newSonG, group.ADMIN)
 
 				tx := ctx.DB.MustBegin()
 				_, err1 := tx.Exec(
@@ -278,6 +282,7 @@ func DeleteRole(ctx *models.Context, id int) error {
 	// 4. delete the related group
 	// 5. sub role's related groups add its parent role's group as group member
 	// 6. change sub role's parent as its parent
+	// 7. delete the role
 	// TODO check fail and rollback
 	role, err := GetRole(ctx, id)
 	if err != nil {
@@ -306,7 +311,7 @@ func DeleteRole(ctx *models.Context, id int) error {
 	subRoles, err := getSubRoles(ctx, id)
 	if err == ErrLeafRoleHasNoSubRole {
 		subRoles = []*Role{}
-	} else {
+	} else if err != nil {
 		return err
 	}
 
@@ -333,7 +338,7 @@ func DeleteRole(ctx *models.Context, id int) error {
 		}
 		tx = ctx.DB.MustBegin()
 		_, err1 := tx.Exec(
-			"UPDATE role SET  super_id=? WHERE id=?",
+			"UPDATE role SET super_id=? WHERE id=?",
 			superId, sRole.Id)
 		err2 := tx.Commit()
 		if err1 != nil {
@@ -343,6 +348,18 @@ func DeleteRole(ctx *models.Context, id int) error {
 			return err2
 		}
 	}
+
+	tx = ctx.DB.MustBegin()
+	_, err1 := tx.Exec(
+		"DELETE FROM role WHERE id=?", id)
+	err2 := tx.Commit()
+	if err1 != nil {
+		return err1
+	}
+	if err2 != nil {
+		return err2
+	}
+
 	return nil
 }
 
@@ -455,17 +472,19 @@ func IsUserInRole(ctx *models.Context, user iuser.User, role *Role) (bool, group
 	return ok, t
 }
 
-func AddRoleResource(ctx *models.Context, roleId int, resourceId int) error {
+func AddRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
 	// only leaf role can have resources
 
 	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
-		"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
-		roleId, resourceId)
+	for _, rId := range resourcesIds {
+		_, err1 := tx.Exec(
+			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
+			roleId, rId)
+		if err1 != nil {
+			return err1
+		}
+	} 
 	err2 := tx.Commit()
-	if err1 != nil {
-		return err1
-	}
 	if err2 != nil {
 		return err2
 	}
@@ -473,26 +492,45 @@ func AddRoleResource(ctx *models.Context, roleId int, resourceId int) error {
 }
 
 func IsLeafRole(ctx *models.Context, roleId int) bool {
-	_, err := ctx.DB.Query("SELECT resource_id FROM role_resource WHERE role_id=?", roleId)
+	log.Debug(roleId)
+	rows, err := ctx.DB.Query("SELECT resource_id FROM role_resource WHERE role_id=?", roleId)
 	if err != nil {
+		log.Debug(err)
 		if err == sql.ErrNoRows {
 			return false
 		} else {
 			panic(err)
 		}
 	}
+	resourceIds := []int{}
+	var tmpId int
+	for rows.Next() {
+		if err = rows.Scan(&tmpId); err != nil {
+			log.Error(err)
+			continue
+		}
+
+		resourceIds = append(resourceIds, tmpId)
+	}
+	log.Debug(resourceIds)
+	if len(resourceIds) == 0 {
+		return false
+	}
+
 	return true
 }
 
-func RemoveRoleResource(ctx *models.Context, roleId int, resourceId int) error {
+func RemoveRoleResource(ctx *models.Context, roleId int, resourceIds []int) error {
 	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM role_resource WHERE role_id=? AND resource_id=?",
-		roleId, resourceId)
+	for _, rId := range resourceIds {
+		_, err1 := tx.Exec("DELETE FROM role_resource WHERE role_id=? AND resource_id=?",
+			roleId, rId)
+		if err1 != nil {
+			return err1
+		}
+	}
 	if err2 := tx.Commit(); err2 != nil {
 		return err2
-	}
-	if err1 != nil {
-		return err1
 	}
 	return nil
 }
