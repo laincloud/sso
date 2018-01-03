@@ -163,7 +163,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	s.AddRestfulResource("/api/roles", "RolesResource", RolesResource{})
 	s.AddRestfulResource("/api/roles/:id", "RoleResource", RoleResource{})
 	s.AddRestfulResource("/api/roles/:id/members/:username", "RoleMemberResource", RoleMemberResource{})
-	s.AddRestfulResource("/api/roles/:id/resources/:resource_id", "RoleResourceResource", RoleResourceResource{})
+	s.AddRestfulResource("/api/roles/:id/resources", "RoleResourceResource", RoleResourceResource{})
 
 	puk, prk, err := loadCertAndKey(s.pubkeyfile, s.prikeyfile)
 	if err != nil {
