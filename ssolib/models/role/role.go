@@ -148,6 +148,12 @@ func GetRolesByGroupIds(ctx *models.Context, groupIds []int) ([]Role, error) {
 	return roles, err
 }
 
+func GetRolesByAppId(ctx *models.Context, appId int) ([]Role, error) {
+	roles := []Role{}
+	err := ctx.DB.Select(&roles, "SELECT * FROM role WHERE app_id=?", appId)
+	return roles, err
+}
+
 func GetRoles(ctx *models.Context, username string, appId int) ([]Role, error) {
 	return nil, nil
 }
