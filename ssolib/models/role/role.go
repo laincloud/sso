@@ -472,25 +472,6 @@ func IsUserInRole(ctx *models.Context, user iuser.User, role *Role) (bool, group
 	return ok, t
 }
 
-func AddRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
-	// only leaf role can have resources
-
-	tx := ctx.DB.MustBegin()
-	for _, rId := range resourcesIds {
-		_, err1 := tx.Exec(
-			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
-			roleId, rId)
-		if err1 != nil {
-			return err1
-		}
-	} 
-	err2 := tx.Commit()
-	if err2 != nil {
-		return err2
-	}
-	return nil
-}
-
 func UpdateRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
 	tx := ctx.DB.MustBegin()
 	_, err0 := tx.Exec("DELETE FROM role_resource WHERE role_id=?", roleId)
@@ -502,6 +483,7 @@ func UpdateRoleResource(ctx *models.Context, roleId int, resourcesIds []int) err
 			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
 			roleId, rId)
 		if err1 != nil {
+			tx.Rollback()
 			return err1
 		}
 	} 
