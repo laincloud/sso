@@ -180,22 +180,46 @@ func GetResources(ctx *models.Context, appId int, user iuser.User) ([]Resource, 
 	return GetResourcesByRoleIds(ctx, rIds)
 }
 
-func GetResourcesForRole(ctx *models.Context, appId int, user iuser.User) ([]RoleResources, error) {
+func GetResourcesForRole(ctx *models.Context, appId int) ([]RoleResources, error) {
+	roles, err := GetRolesByAppId(ctx, appId)
+	if err != nil {
+		return nil, err
+	}
+	ret := []RoleResources{}
+	for _, role := range roles {
+		resources, err := GetResourcesByRoleId(ctx, role.Id)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, RoleResources{
+			RoleId:	   role.Id,
+			Resources: resources,
+		})
+	}
+	return ret, nil
+}
+
+func GetResourcesForRoleByUser(ctx *models.Context, appId int, user iuser.User) ([]RoleResources, error) {
 	// for leaf role and it's resources
 	rIds, err := getLeafRoleIds(ctx, user, appId)
 	if err != nil {
 		return nil, err
 	}
 	ret := []RoleResources{}
+	m := make(map[int]struct{})
 	for _, rId := range rIds {
 		ress, err := GetResourcesByRoleId(ctx, rId)
 		if err != nil {
 			return nil, err
 		}
+		if _, ok := m[rId]; ok{
+			continue
+		}
 		ret = append(ret, RoleResources{
 			RoleId:    rId,
 			Resources: ress,
 		})
+		m[rId] = struct{}{}
 	}
 	return ret, nil
 }

@@ -69,7 +69,7 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 			}
 			return http.StatusOK, rs
 		} else if retType == "byrole" {
-			rrs, err := role.GetResourcesForRole(mctx, appId, qUser)
+			rrs, err := role.GetResourcesForRole(mctx, appId)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
