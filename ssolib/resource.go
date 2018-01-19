@@ -8,11 +8,13 @@ import (
 	"github.com/mijia/sweb/form"
 	"github.com/mijia/sweb/log"
 	"github.com/mijia/sweb/server"
+	"github.com/deckarep/golang-set"
 	"golang.org/x/net/context"
 
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"github.com/laincloud/sso/ssolib/models/role"
+	"github.com/laincloud/sso/ssolib/utils"
 )
 
 type ResourcesResource struct {
@@ -255,7 +257,7 @@ func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int,
 		}
 		
 		req := RoleResourceReq{}
-		if err := form.ParamBodyJson(r, &req); err != nil || len(req.Resources) < 1 {
+		if err := form.ParamBodyJson(r, &req); err != nil {
 			return http.StatusBadRequest, "body json invalid"
 		}
 
@@ -274,18 +276,28 @@ func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int,
 		} else {
 			return http.StatusForbidden, ErrNotAdmin
 		}
+		
+		resources, err := role.GetAllResources(mctx, modifyRole.AppId)
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+		resIdSet := mapset.NewSet()
+		for _, res := range resources {
+			resIdSet.Add(res.Id)
+		}
+		reqSet := mapset.NewSetFromSlice(utils.ToInterfaces(req.Resources))
+		if difSet := reqSet.Difference(resIdSet); difSet.Cardinality() > 0 {
+			return http.StatusBadRequest, 
+				"invalid resource_ids: " + difSet.String()
+		}
 
 		switch req.Action {
-		case "add":
-			if err := role.AddRoleResource(mctx, id, req.Resources); err != nil {
-				return http.StatusBadRequest, err
-			}
 		case "delete":
-			if err := role.RemoveRoleResource(mctx, id, req.Resources); err!= nil {
+			if err := role.RemoveRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err!= nil {
 				return http.StatusBadRequest, err
 			}
 		case "update":
-			if err := role.UpdateRoleResource(mctx, id, req.Resources); err!= nil {
+			if err := role.UpdateRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err!= nil {
 				return http.StatusBadRequest, err
 			}
 		default:

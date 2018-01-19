@@ -35,3 +35,19 @@ func alterGroup(db *sqlx.DB) {
 		log.Debug(rows)
 	}
 }
+
+func ToInterfaces(i []int) []interface{} {
+	ifs := make([]interface{}, len(i))
+	for ind, v := range i {
+		ifs[ind] = v
+	}
+	return ifs
+}
+
+func ToInts(inter []interface{}) []int {
+	ints := make([]int, len(inter))
+	for i, v := range inter {
+		ints[i] = v.(int)
+	}
+	return ints
+}

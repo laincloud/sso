@@ -12,6 +12,7 @@ build:
       - git clone --depth=1 https://github.com/golang/sys.git /go/src/golang.org/x/sys # GFW
       - git clone --depth=1 https://github.com/golang/net.git /go/src/golang.org/x/net
       - go get github.com/zhiwang-web/gobuildweb
+      - go get github.com/deckarep/golang-set
       - go get github.com/tools/godep
       - make go-build
     keep:
