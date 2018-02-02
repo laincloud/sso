@@ -2,6 +2,7 @@ package ssolib
 
 import (
 	"net/http"
+	"errors"
 
 	"github.com/mijia/sweb/form"
 	"github.com/mijia/sweb/server"
@@ -76,6 +77,14 @@ func (ar AppResource) Post(ctx context.Context, r *http.Request) (int, interface
 		}
 
 		mctx := getModelContext(ctx)
+		nameExist, err := app.AppNameExist(mctx, appSpec.FullName)
+		if err != nil {
+			panic(err)
+		}
+		if nameExist {
+			return http.StatusBadRequest, errors.New("app name exists!")
+		}
+
 		a, err := app.CreateApp(mctx, &app.App{FullName: appSpec.FullName, RedirectUri: appSpec.RedirectUri}, u)
 		if err != nil {
 			panic(err)

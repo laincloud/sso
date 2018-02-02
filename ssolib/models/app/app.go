@@ -152,3 +152,17 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 
 	return &app, nil
 }
+
+func AppNameExist(ctx *models.Context, appName string) (bool, error) {
+	log.Debug("AppNameExist: %s", appName)
+	app := App{}
+	err := ctx.DB.Get(&app, "SELECT * FROM app WHERE fullname=? LIMIT 1", appName)
+	log.Debug("AppNameExist: %s finish", appName)
+	if err == sql.ErrNoRows {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
+}
