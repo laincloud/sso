@@ -154,6 +154,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	s.Post("/api/resourcesdelete", "ResourcesDelete", s.ResourcesDelete)
 	s.Post("/api/rolemembers", "RoleMembers", s.RoleMembers)
+	s.Get("/api/batch-users", "BatchUsers", s.BatchUsers)
 
 	addHandlers(s)
 
