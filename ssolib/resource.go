@@ -15,6 +15,7 @@ import (
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"github.com/laincloud/sso/ssolib/models/role"
 	"github.com/laincloud/sso/ssolib/utils"
+	"github.com/laincloud/sso/ssolib/models/app"
 )
 
 type ResourcesResource struct {
@@ -29,19 +30,32 @@ type Resoucrce struct {
 }
 
 func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "read:resource", func(u iuser.User) (int, interface{}) {
-		if err := r.ParseForm(); err != nil {
-			log.Debug(err)
-			return http.StatusBadRequest, err
-		}
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
-		}
-		appId, err := strconv.Atoi(sAppId)
+	if err := r.ParseForm(); err != nil {
+		log.Debug(err)
+		return http.StatusBadRequest, err
+	}
+	sAppId := r.Form.Get("app_id")
+	if sAppId == "" {
+		return http.StatusBadRequest, "app_id required"
+	}
+	appId, err := strconv.Atoi(sAppId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	mctx := getModelContext(ctx)
+	secret := r.Form.Get("secret")
+	client, _ := app.GetApp(mctx, appId)
+	if client.GetSecret() == secret {
+		rs, err := role.GetAllResources(mctx, appId)
+		log.Debug(rs, err)
 		if err != nil {
+			panic(err)
 			return http.StatusBadRequest, err
 		}
+		return http.StatusOK, rs
+	}
+
+	return requireScope(ctx, "read:resource", func(u iuser.User) (int, interface{}) {
 		userName := r.Form.Get("username")
 		qUser := u
 		ub := getUserBackend(ctx)
@@ -61,7 +75,6 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 			return http.StatusBadRequest, "type is not defined"
 		}
 
-		mctx := getModelContext(ctx)
 		if retType == "byapp" {
 			rs, err := role.GetResources(mctx, appId, qUser)
 			if err != nil {
@@ -88,25 +101,40 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 }
 
 func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:resource", func(u iuser.User) (int, interface{}) {
-
-		mctx := getModelContext(ctx)
-		resourceReq := Resoucrce{}
-		if err := form.ParamBodyJson(r, &resourceReq); err != nil {
-			return http.StatusBadRequest, err
+	mctx := getModelContext(ctx)
+	resourceReq := Resoucrce{}
+	if err := form.ParamBodyJson(r, &resourceReq); err != nil {
+		return http.StatusBadRequest, err
+	}
+	if err := r.ParseForm(); err != nil {
+		return http.StatusBadRequest, err
+	}
+	sAppId := r.Form.Get("app_id")
+	if sAppId == "" {
+		return http.StatusBadRequest, "app_id required"
+	}
+	appId, err := strconv.Atoi(sAppId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	secret := r.Form.Get("secret")
+	client, _ := app.GetApp(mctx, appId)
+	if client.GetSecret() == secret {
+		tmp := role.Resource{
+			Name:        resourceReq.Name,
+			Description: resourceReq.Description,
+			AppId:       appId,
+			Data:        resourceReq.Data,
+			Owner:       client.FullName,
 		}
-		if err := r.ParseForm(); err != nil {
-			return http.StatusBadRequest, err
-		}
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
-		}
-		appId, err := strconv.Atoi(sAppId)
+		resp, err := role.CreateResource(mctx, &tmp)
 		if err != nil {
-			return http.StatusBadRequest, err
+			panic(err)
 		}
+		return http.StatusOK, resp
+	}
 
+	return requireScope(ctx, "write:resource", func(u iuser.User) (int, interface{}) {
 		ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
 		if ok && mType == group.ADMIN {
 			tmp := role.Resource{
@@ -150,33 +178,43 @@ func (rr ResourceResource) Get(ctx context.Context, r *http.Request) (int, inter
 }
 
 func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
+	mctx := getModelContext(ctx)
+	resourceReq := Resoucrce{}
+	if err := form.ParamBodyJson(r, &resourceReq); err != nil {
+		return http.StatusBadRequest, err
+	}
+	if err := r.ParseForm(); err != nil {
+		return http.StatusBadRequest, err
+	}
+	sAppId := r.Form.Get("app_id")
+	if sAppId == "" {
+		return http.StatusBadRequest, "app_id required"
+	}
+	appId, err := strconv.Atoi(sAppId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	rId := params(ctx, "id")
+	if rId == "" {
+		return http.StatusBadRequest, "resource id not given"
+	}
+	id, err := strconv.Atoi(rId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	secret := r.Form.Get("secret")
+	client, _ := app.GetApp(mctx, appId)
+	if client.GetSecret() == secret {
+		resp, err := role.UpdateResource(mctx, id, resourceReq.Name, resourceReq.Description, resourceReq.Data)
+		if err != nil {
+			panic(err)
+		}
+
+		return http.StatusOK, resp
+	}
+
 	return requireScope(ctx, "write:resource", func(u iuser.User) (int, interface{}) {
-
-		mctx := getModelContext(ctx)
-		resourceReq := Resoucrce{}
-		if err := form.ParamBodyJson(r, &resourceReq); err != nil {
-			return http.StatusBadRequest, err
-		}
-		if err := r.ParseForm(); err != nil {
-			return http.StatusBadRequest, err
-		}
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
-		}
-		appId, err := strconv.Atoi(sAppId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-		rId := params(ctx, "id")
-		if rId == "" {
-			return http.StatusBadRequest, "resource id not given"
-		}
-		id, err := strconv.Atoi(rId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-
 		ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
 		if ok && mType == group.ADMIN {
 			resp, err := role.UpdateResource(mctx, id, resourceReq.Name, resourceReq.Description, resourceReq.Data)
@@ -194,30 +232,37 @@ func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, inte
 }
 
 func (rr ResourceResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
+	mctx := getModelContext(ctx)
+	if err := r.ParseForm(); err != nil {
+		return http.StatusBadRequest, err
+	}
+	rId := params(ctx, "id")
+	if rId == "" {
+		return http.StatusBadRequest, "resource id not given"
+	}
+	id, err := strconv.Atoi(rId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	sAppId := r.Form.Get("app_id")
+	if sAppId == "" {
+		return http.StatusBadRequest, "app_id required"
+	}
+	appId, err := strconv.Atoi(sAppId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	secret := r.Form.Get("secret")
+	client, _ := app.GetApp(mctx, appId)
+	if client.GetSecret() == secret {
+		err = role.DeleteResource(mctx, id)
+		if err != nil {
+			panic(err)
+		}
+		return http.StatusNoContent, "delete succeed"
+	}
 
 	return requireScope(ctx, "write:resource", func(u iuser.User) (int, interface{}) {
-
-		mctx := getModelContext(ctx)
-		if err := r.ParseForm(); err != nil {
-			return http.StatusBadRequest, err
-		}
-		rId := params(ctx, "id")
-		if rId == "" {
-			return http.StatusBadRequest, "resource id not given"
-		}
-		id, err := strconv.Atoi(rId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
-		}
-		appId, err := strconv.Atoi(sAppId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-
 		ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
 		if ok && mType == group.ADMIN {
 			err = role.DeleteResource(mctx, id)
