@@ -101,9 +101,7 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 }
 
 func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	mctx := getModelContext(ctx)
 	resourceReq := Resoucrce{}
-	return 000,"123123"
 	if err := form.ParamBodyJson(r, &resourceReq); err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -119,6 +117,7 @@ func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, in
 		return http.StatusBadRequest, err
 	}
 	secret := r.Form.Get("secret")
+	mctx := getModelContext(ctx)
 	client, _ := app.GetApp(mctx, appId)
 	if client.GetSecret() == secret {
 		tmp := role.Resource{
