@@ -203,7 +203,7 @@ func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, inte
 		return http.StatusBadRequest, err
 	}
 
-	secret := r.Form.Get("secret")
+	secret := r.Header.Get("secret")
 	client, _ := app.GetApp(mctx, appId)
 	if client.GetSecret() == secret {
 		resp, err := role.UpdateResource(mctx, id, resourceReq.Name, resourceReq.Description, resourceReq.Data)
@@ -252,7 +252,7 @@ func (rr ResourceResource) Delete(ctx context.Context, r *http.Request) (int, in
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-	secret := r.Form.Get("secret")
+	secret := r.Header.Get("secret")
 	client, _ := app.GetApp(mctx, appId)
 	if client.GetSecret() == secret {
 		err = role.DeleteResource(mctx, id)
