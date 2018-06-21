@@ -103,7 +103,7 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	resourceReq := Resoucrce{}
 	if err := form.ParamBodyJson(r, &resourceReq); err != nil {
-		return http.StatusBadRequest, err
+		return 888, err
 	}
 	if err := r.ParseForm(); err != nil {
 		return http.StatusBadRequest, err
