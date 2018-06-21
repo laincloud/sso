@@ -103,6 +103,7 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	mctx := getModelContext(ctx)
 	resourceReq := Resoucrce{}
+	return 000,"123123"
 	if err := form.ParamBodyJson(r, &resourceReq); err != nil {
 		return http.StatusBadRequest, err
 	}
