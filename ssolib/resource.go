@@ -44,9 +44,10 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 	}
 	mctx := getModelContext(ctx)
 	secret := r.Form.Get("secret")
-	if secret != "" {
+	if secret == "" {
 		return 999, err
 	}
+	return 888, err
 	client, _ := app.GetApp(mctx, appId)
 	if client.GetSecret() == secret {
 		rs, err := role.GetAllResources(mctx, appId)
