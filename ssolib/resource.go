@@ -34,20 +34,23 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 		log.Debug(err)
 		return http.StatusBadRequest, err
 	}
+	return 111, "test marker1"
 	sAppId := r.Form.Get("app_id")
 	if sAppId == "" {
 		return http.StatusBadRequest, "app_id required"
 	}
+	return 222, "test marker2"
 	appId, err := strconv.Atoi(sAppId)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
+	return 333, "test marker3"
 	mctx := getModelContext(ctx)
 	secret := r.Form.Get("secret")
 	if secret == "" {
-		return 999, err
+		return 999, "no secret"
 	}
-	return 888, err
+	return 888, "secret exists"
 	client, _ := app.GetApp(mctx, appId)
 	if client.GetSecret() == secret {
 		rs, err := role.GetAllResources(mctx, appId)
