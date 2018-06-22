@@ -354,10 +354,7 @@ type RoleResource struct {
 
 func (rr RoleResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	AppId := r.Header.Get("app_id")
-	appId, err := strconv.Atoi(AppId)
-	if err != nil {
-		return http.StatusBadRequest, "app id invalid"
-	}
+	appId, _ := strconv.Atoi(AppId)
 	secret := r.Header.Get("secret")
 	mctx := getModelContext(ctx)
 	client, _ := app.GetApp(mctx, appId)

@@ -30,32 +30,20 @@ type Resoucrce struct {
 }
 
 func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	if err := r.ParseForm(); err != nil {
-		log.Debug(err)
-		return http.StatusBadRequest, err
-	}
-	sAppId := r.Form.Get("app_id")
-	if sAppId == "" {
-		return http.StatusBadRequest, "app_id required"
-	}
-	appId, err := strconv.Atoi(sAppId)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-	mctx := getModelContext(ctx)
-	secret := r.Header.Get("secret")
-	client, _ := app.GetApp(mctx, appId)
-	if client.GetSecret() == secret {
-		rs, err := role.GetAllResources(mctx, appId)
-		log.Debug(rs, err)
-		if err != nil {
-			panic(err)
+	return requireScope(ctx, "read:resource", func(u iuser.User) (int, interface{}) {
+		if err := r.ParseForm(); err != nil {
+			log.Debug(err)
 			return http.StatusBadRequest, err
 		}
-		return http.StatusOK, rs
-	}
-
-	return requireScope(ctx, "read:resource", func(u iuser.User) (int, interface{}) {
+		sAppId := r.Form.Get("app_id")
+		if sAppId == "" {
+			return http.StatusBadRequest, "app_id required"
+		}
+		appId, err := strconv.Atoi(sAppId)
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
+		mctx := getModelContext(ctx)
 		userName := r.Form.Get("username")
 		qUser := u
 		ub := getUserBackend(ctx)
@@ -202,7 +190,6 @@ func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, inte
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-
 	secret := r.Header.Get("secret")
 	client, _ := app.GetApp(mctx, appId)
 	if client.GetSecret() == secret {
