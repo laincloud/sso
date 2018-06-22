@@ -129,56 +129,25 @@ var (
 func (ar AppRoleResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	// create the default app root role, i.e. use the app group or
 	// use some existed role as a root role, in this case the role id is different from the admin group id
-	mctx := getModelContext(ctx)
-
-	req := AppRole{}
-	if err := form.ParamBodyJson(r, &req); err != nil {
-		return http.StatusBadRequest, err
-	}
-	log.Debug(req)
-	if req.AppId == 0 {
-		return http.StatusBadRequest, errors.New("app id is required")
-	} else if _, err := app.GetApp(mctx, req.AppId); err != nil {
-		return http.StatusBadRequest, err
-	}
-	if req.RoleId == 0 && req.RoleName == "" {
-		return http.StatusBadRequest, errors.New("role id is required if use old role, otherwise role name is required ")
-	}
-	if req.RoleId != 0 && req.RoleName != "" {
-		return http.StatusBadRequest, errors.New("should either set role id or role name, both existed parameters are confused.")
-	}
-
-	secret := r.Header.Get("secret")
-	client, _ := app.GetApp(mctx, req.AppId)
-	if client.GetSecret() == secret {
-		if req.RoleName != "" {
-			app, err := role.CreateAppDefaultRole(mctx, req.AppId, req.RoleName, req.RoleName)
-			if err != nil {
-				return http.StatusBadRequest, err
-			} else {
-				app.Secret = ""
-				return http.StatusOK, app
-			}
-		} else {
-			targetRole, err := role.GetRole(mctx, req.RoleId)
-			if err != nil {
-				return http.StatusBadRequest, err
-			}
-			if targetRole.SuperRoleId != -1 {
-				return http.StatusBadRequest, errors.New(
-					"only the root role can be used as a root role by other apps")
-			}
-			app, err := role.SetAppRole(mctx, req.RoleId, req.AppId)
-			if err != nil {
-				return http.StatusBadRequest, err
-			} else {
-				return http.StatusOK, app
-			}
-		}
-	}
-
 	return requireScope(ctx, "write:app", func(u iuser.User) (int, interface{}) {
+		mctx := getModelContext(ctx)
 
+		req := AppRole{}
+		if err := form.ParamBodyJson(r, &req); err != nil {
+			return http.StatusBadRequest, err
+		}
+		log.Debug(req)
+		if req.AppId == 0 {
+			return http.StatusBadRequest, errors.New("app id is required")
+		} else if _, err := app.GetApp(mctx, req.AppId); err != nil {
+			return http.StatusBadRequest, err
+		}
+		if req.RoleId == 0 && req.RoleName == "" {
+			return http.StatusBadRequest, errors.New("role id is required if use old role, otherwise role name is required ")
+		}
+		if req.RoleId != 0 && req.RoleName != "" {
+			return http.StatusBadRequest, errors.New("should either set role id or role name, both existed parameters are confused.")
+		}
 		// ACL
 		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, req.AppId); ok {
 			if roleType != group.ADMIN {
@@ -224,34 +193,15 @@ func (ar AppRoleResource) Post(ctx context.Context, r *http.Request) (int, inter
 }
 
 func (ar AppRoleResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
-	req := AppRole{}
-	if err := form.ParamBodyJson(r, &req); err != nil {
-		return http.StatusBadRequest, err
-	}
-	if req.AppId == 0 {
-		return http.StatusBadRequest, errors.New("app id is required")
-	}
-	secret := r.Header.Get("secret")
-	mctx := getModelContext(ctx)
-	client, _ := app.GetApp(mctx, req.AppId)
-	if client.GetSecret() == secret {
-		if r, err := role.GetAppAdminRole(mctx, req.AppId); r == nil {
-			if err == role.ErrRoleNotFound {
-				return http.StatusBadRequest, errors.New("admin role not exists.")
-			} else {
-				panic(err)
-			}
-		}
-
-		app, err := role.DeleteAppRole(mctx, req.AppId)
-		if err != nil {
-			log.Error(err)
-			panic(err)
-		}
-		return http.StatusOK, app
-	}
 	return requireScope(ctx, "write:app", func(u iuser.User) (int, interface{}) {
-
+		mctx := getModelContext(ctx)
+		req := AppRole{}
+		if err := form.ParamBodyJson(r, &req); err != nil {
+			return http.StatusBadRequest, err
+		}
+		if req.AppId == 0 {
+			return http.StatusBadRequest, errors.New("app id is required")
+		}
 		// ACL
 		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, req.AppId); ok {
 			if roleType != group.ADMIN {
@@ -403,6 +353,30 @@ type RoleResource struct {
 }
 
 func (rr RoleResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+
+	AppId := r.Header.Get("app_id")
+	appId, err := strconv.Atoi(AppId)
+	if err != nil {
+		return http.StatusBadRequest, "app id invalid"
+	}
+	mctx := getModelContext(ctx)
+	secret := r.Header.Get("secret")
+	client, _ := app.GetApp(mctx, appId)
+	if client.GetSecret() == secret {
+		rId := params(ctx, "id")
+		if rId == "" {
+			return http.StatusBadRequest, "role id required"
+		}
+		id, err := strconv.Atoi(rId)
+		if err != nil {
+			return http.StatusBadRequest, "role id invalid"
+		}
+		role, err := role.GetRole(mctx, id)
+		if err != nil {
+			return http.StatusNotFound, err
+		}
+		return http.StatusOK, role
+	}
 	return requireScope(ctx, "read:role", func(u iuser.User) (int, interface{}) {
 		rId := params(ctx, "id")
 		if rId == "" {
@@ -412,7 +386,6 @@ func (rr RoleResource) Get(ctx context.Context, r *http.Request) (int, interface
 		if err != nil {
 			return http.StatusBadRequest, "role id invalid"
 		}
-		mctx := getModelContext(ctx)
 		role, err := role.GetRole(mctx, id)
 		if err != nil {
 			return http.StatusNotFound, err
