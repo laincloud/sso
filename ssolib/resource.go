@@ -289,30 +289,65 @@ type RoleResourceReq struct {
 }
 
 func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
-		mctx := getModelContext(ctx)
 
-		roleId := params(ctx, "id")
-		if roleId == "" {
-			return http.StatusBadRequest, "role id required"
+	mctx := getModelContext(ctx)
+
+	roleId := params(ctx, "id")
+	if roleId == "" {
+		return http.StatusBadRequest, "role id required"
+	}
+	id, err := strconv.Atoi(roleId)
+	if err != nil {
+		return http.StatusBadRequest, "role id invalid"
+	}
+
+	req := RoleResourceReq{}
+	if err := form.ParamBodyJson(r, &req); err != nil {
+		return http.StatusBadRequest, "body json invalid"
+	}
+
+	modifyRole, err := role.GetRole(mctx, id)
+	if err != nil {
+		if err == role.ErrRoleNotFound {
+			return http.StatusBadRequest, "role not found"
 		}
-		id, err := strconv.Atoi(roleId)
+		panic(err)
+	}
+	appId := modifyRole.AppId
+	secret := r.Header.Get("secret")
+	client, _ := app.GetApp(mctx, appId)
+	if client.GetSecret() == secret {
+		resources, err := role.GetAllResources(mctx, modifyRole.AppId)
 		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
+			return http.StatusInternalServerError, err
 		}
-		
-		req := RoleResourceReq{}
-		if err := form.ParamBodyJson(r, &req); err != nil {
-			return http.StatusBadRequest, "body json invalid"
+		resIdSet := mapset.NewSet()
+		for _, res := range resources {
+			resIdSet.Add(res.Id)
+		}
+		reqSet := mapset.NewSetFromSlice(utils.ToInterfaces(req.Resources))
+		if difSet := reqSet.Difference(resIdSet); difSet.Cardinality() > 0 {
+			return http.StatusBadRequest,
+				"invalid resource_ids: " + difSet.String()
 		}
 
-		modifyRole, err := role.GetRole(mctx, id)
-		if err != nil {
-			if err == role.ErrRoleNotFound {
-				return http.StatusBadRequest, "role not found"
+		switch req.Action {
+		case "delete":
+			if err := role.RemoveRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err!= nil {
+				return http.StatusBadRequest, err
 			}
-			panic(err)
+		case "update":
+			if err := role.UpdateRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err!= nil {
+				return http.StatusBadRequest, err
+			}
+		default:
+			return http.StatusBadRequest, "action should be either add or delete"
 		}
+		return http.StatusNoContent, ""
+	}
+
+	return requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
+
 
 		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, modifyRole.AppId); ok {
 			if roleType != group.ADMIN {
