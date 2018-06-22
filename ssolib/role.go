@@ -353,7 +353,7 @@ type RoleResource struct {
 }
 
 func (rr RoleResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	AppId := r.Header.Get("app_id")
+	AppId := r.Header.Get("App_id")
 	//appId, err := strconv.Atoi(AppId)
 	if AppId == "" {
 		return http.StatusBadRequest, "app id lost"
