@@ -112,7 +112,7 @@ func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, in
 		auth, msg:= requireScope(ctx, "write:resource", func(u iuser.User) (int, interface{}) {
 			ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
 			name = u.GetName()
-			if ok && mType != group.ADMIN {
+			if !(ok && mType == group.ADMIN) {
 				return http.StatusForbidden, "only the admin of the root role can create resource"
 			}
 			return http.StatusOK, "authorized"
@@ -191,7 +191,7 @@ func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, inte
 	if secret == "" {
 		auth, msg:= requireScope(ctx, "write:resource", func(u iuser.User) (int, interface{}) {
 			ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
-			if ok && mType != group.ADMIN {
+			if !(ok && mType == group.ADMIN) {
 				return http.StatusForbidden, "only the admin of the root role can modify resource"
 			}
 			return http.StatusOK, "authorized"
@@ -237,7 +237,7 @@ func (rr ResourceResource) Delete(ctx context.Context, r *http.Request) (int, in
 	if secret == "" {
 		auth, msg := requireScope(ctx, "write:resource", func(u iuser.User) (int, interface{}) {
 			ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
-			if ok && mType != group.ADMIN {
+			if !(ok && mType == group.ADMIN) {
 				return http.StatusForbidden, "only the admin member of the root role can delete resources"
 			}
 			return http.StatusOK, "authorized"

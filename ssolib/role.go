@@ -328,7 +328,7 @@ func (rsr RolesResource) Post(ctx context.Context, r *http.Request) (int, interf
 	if secret == "" {
 		auth, msg:= requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
 			ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
-			if ok && mType != group.ADMIN {
+			if !(ok && mType == group.ADMIN) {
 				return http.StatusForbidden, "only the admin of the root role can create role"
 			}
 			return http.StatusOK, "authorized"
