@@ -30,62 +30,75 @@ type Resoucrce struct {
 }
 
 func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "read:resource", func(u iuser.User) (int, interface{}) {
-		if err := r.ParseForm(); err != nil {
-			log.Debug(err)
-			return http.StatusBadRequest, err
+	if err := r.ParseForm(); err != nil {
+		log.Debug(err)
+		return http.StatusBadRequest, err
+	}
+	sAppId := r.Form.Get("app_id")
+	if sAppId == "" {
+		return http.StatusBadRequest, "app_id required"
+	}
+	appId, err := strconv.Atoi(sAppId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	retType := r.Form.Get("type")
+	mctx := getModelContext(ctx)
+	secret := r.Header.Get("secret")
+	var qUser iuser.User
+	if secret == "" {
+		auth, msg:= requireScope(ctx, "read:resource", func(u iuser.User) (int, interface{}) {
+			qUser = u
+			return http.StatusOK, "authorized"
+		})
+		if auth != http.StatusOK {
+			return auth, msg
 		}
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
+	} else {
+		client, err := app.GetApp(mctx, appId)
+		retType = "raw"
+		if err != nil || client.GetSecret() != secret {
+			return http.StatusForbidden, "authoriaztion is required"
 		}
-		appId, err := strconv.Atoi(sAppId)
+	}
+	userName := r.Form.Get("username")
+	ub := getUserBackend(ctx)
+	if userName != "" {
+		qUser, err = ub.GetUserByName(userName)
+		if err == iuser.ErrUserNotFound {
+			return http.StatusNotFound, err
+		} else {
+			panic(err)
+		}
+	}
+	if retType == "" {
+		retType = "byapp"
+	} else if retType != "byrole" && retType != "byapp" && retType != "raw" {
+		return http.StatusBadRequest, "type is not defined"
+	}
+
+	if retType == "byapp" {
+		rs, err := role.GetResources(mctx, appId, qUser)
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		mctx := getModelContext(ctx)
-		userName := r.Form.Get("username")
-		qUser := u
-		ub := getUserBackend(ctx)
-		if userName != "" {
-			qUser, err = ub.GetUserByName(userName)
-			if err == iuser.ErrUserNotFound {
-				return http.StatusNotFound, err
-			} else {
-				panic(err)
-			}
+		return http.StatusOK, rs
+	} else if retType == "byrole" {
+		rrs, err := role.GetResourcesForRole(mctx, appId)
+		if err != nil {
+			return http.StatusBadRequest, err
 		}
-
-		retType := r.Form.Get("type")
-		if retType == "" {
-			retType = "byapp"
-		} else if retType != "byrole" && retType != "byapp" && retType != "raw" {
-			return http.StatusBadRequest, "type is not defined"
+		return http.StatusOK, rrs
+	} else {
+		rs, err := role.GetAllResources(mctx, appId)
+		log.Debug(rs, err)
+		if err != nil {
+			panic(err)
+			return http.StatusBadRequest, err
 		}
+		return http.StatusOK, rs
+	}
 
-		if retType == "byapp" {
-			rs, err := role.GetResources(mctx, appId, qUser)
-			if err != nil {
-				return http.StatusBadRequest, err
-			}
-			return http.StatusOK, rs
-		} else if retType == "byrole" {
-			rrs, err := role.GetResourcesForRole(mctx, appId)
-			if err != nil {
-				return http.StatusBadRequest, err
-			}
-			return http.StatusOK, rrs
-		} else {
-			rs, err := role.GetAllResources(mctx, appId)
-			log.Debug(rs, err)
-			if err != nil {
-				panic(err)
-				return http.StatusBadRequest, err
-			}
-			return http.StatusOK, rs
-		}
-
-	})
 }
 
 
