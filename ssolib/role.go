@@ -240,67 +240,84 @@ type RoleMembers struct {
 }
 
 func (rsr RolesResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "read:role", func(u iuser.User) (int, interface{}) {
-		r.ParseForm()
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
+	r.ParseForm()
+	sAppId := r.Form.Get("app_id")
+	if sAppId == "" {
+		return http.StatusBadRequest, "app_id required"
+	}
+	appId, err := strconv.Atoi(sAppId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	mctx := getModelContext(ctx)
+	secret := r.Header.Get("secret")
+	var queryUser iuser.User
+	if secret == "" {
+		auth, msg := requireScope(ctx, "read:role", func(u iuser.User) (int, interface{}) {
+			queryUser = u
+			return http.StatusOK, "authorized"
+		})
+		if auth != http.StatusOK {
+			return auth, msg
 		}
-		appId, err := strconv.Atoi(sAppId)
-		if err != nil {
-			return http.StatusBadRequest, err
+	} else {
+		client, err := app.GetApp(mctx, appId)
+		if err != nil || client.GetSecret() != secret {
+			return http.StatusForbidden, "authorization is required"
 		}
-		userName := r.Form.Get("username")
-		queryUser := u
-		if userName != "" {
-			ub := getUserBackend(ctx)
-			queryUser, err = ub.GetUserByName(userName)
-			if err == iuser.ErrUserNotFound {
-				return http.StatusNotFound, err
-			} else {
-				panic(err)
-			}
+		res, err := role.GetRolesByAppId(mctx, appId)
+		return http.StatusOK, res
+	}
+	userName := r.Form.Get("username")
+	if userName != "" {
+		ub := getUserBackend(ctx)
+		queryUser, err = ub.GetUserByName(userName)
+		if err == iuser.ErrUserNotFound {
+			return http.StatusNotFound, err
+		} else {
+			panic(err)
 		}
-		mctx := getModelContext(ctx)
-		roleMembers, err := role.GetAllRoleMembers(mctx, queryUser, appId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-		ret := []RoleMembers{}
-		for _, rM := range roleMembers {
+	}
 
-			memList := []RoleMember{}
-			for _, gM := range rM.Members {
-				var sType string
-				if gM.Role == group.ADMIN {
-					sType = "admin"
-				} else {
-					sType = "normal"
-				}
-				memList = append(memList, RoleMember{
-					UserName:   gM.GetName(),
-					MemberType: sType,
-				})
-			}
+	roleMembers, err := role.GetAllRoleMembers(mctx, queryUser, appId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	ret := []RoleMembers{}
+	for _, rM := range roleMembers {
 
+		memList := []RoleMember{}
+		for _, gM := range rM.Members {
 			var sType string
-			if rM.Type == group.ADMIN {
+			if gM.Role == group.ADMIN {
 				sType = "admin"
 			} else {
 				sType = "normal"
 			}
-			tmp := RoleMembers{
-				Role:    rM.Role,
-				Type:    sType,
-				Members: memList,
-			}
-			ret = append(ret, tmp)
+			memList = append(memList, RoleMember{
+				UserName:   gM.GetName(),
+				MemberType: sType,
+			})
 		}
-		log.Debug(ret)
-		return http.StatusOK, ret
 
-	})
+		var sType string
+		if rM.Type == group.ADMIN {
+			sType = "admin"
+		} else {
+			sType = "normal"
+		}
+		tmp := RoleMembers{
+			Role:    rM.Role,
+			Type:    sType,
+			Members: memList,
+		}
+		ret = append(ret, tmp)
+	}
+	log.Debug(ret)
+	return http.StatusOK, ret
 }
+
+
 
 type RoleReq struct {
 	AppId  int    `json:"app_id"`
