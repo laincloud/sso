@@ -353,52 +353,27 @@ type RoleResource struct {
 }
 
 func (rr RoleResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	if err := r.ParseForm(); err != nil {
-		log.Debug(err)
-		return http.StatusBadRequest, err
-	}
-	AppId := r.Form.Get("App_id")
-	//appId, err := strconv.Atoi(AppId)
-	if AppId == "" {
-		return http.StatusBadRequest, "app id lost"
-	}
-	appId, err := strconv.Atoi(AppId)
-	if err != nil {
-		return http.StatusBadRequest, "app id invalid"
-	}
-	secret := r.Header.Get("secret")
 	mctx := getModelContext(ctx)
+	rId := params(ctx, "id")
+	if rId == "" {
+		return http.StatusBadRequest, "role id required"
+	}
+	id, err := strconv.Atoi(rId)
+	if err != nil {
+		return http.StatusBadRequest, "role id invalid"
+	}
+
+	role, err := role.GetRole(mctx, id)
+	if err != nil {
+		return http.StatusNotFound, err
+	}
+	appId := role.AppId
+	secret := r.Header.Get("secret")
 	client, _ := app.GetApp(mctx, appId)
 	if client.GetSecret() == secret {
-		rId := params(ctx, "id")
-		if rId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(rId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-
-		role, err := role.GetRole(mctx, id)
-		if err != nil {
-			return http.StatusNotFound, err
-		}
 		return http.StatusOK, role
 	}
 	return requireScope(ctx, "read:role", func(u iuser.User) (int, interface{}) {
-		rId := params(ctx, "id")
-		if rId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(rId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-
-		role, err := role.GetRole(mctx, id)
-		if err != nil {
-			return http.StatusNotFound, err
-		}
 		return http.StatusOK, role
 	})
 }
