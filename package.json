@@ -4,6 +4,7 @@
   "description": "[![Build Status](https://travis-ci.org/laincloud/sso.svg?branch=master)](https://travis-ci.org/laincloud/sso) [![codecov](https://codecov.io/gh/laincloud/sso/branch/master/graph/badge.svg)](https://codecov.io/gh/laincloud/sso) [![MIT license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://opensource.org/licenses/MIT)",
   "main": "index.js",
   "dependencies": {
+    "babel-preset-env": "^1.7.0",
     "babel-preset-es2015": "^6.18.0",
     "babel-preset-react": "^6.16.0",
     "babelify": "^7.3.0",
@@ -15,8 +16,8 @@
     "history": "^1.13.1",
     "lodash": "^3.10.1",
     "nib": "^1.1.2",
-    "react-router": "^1.0.0-rc1",
     "react": "^0.13.3",
+    "react-router": "^1.0.0-rc1",
     "react-style": "^0.5.5",
     "uglifyify": "^3.0.4",
     "whatwg-fetch": "^0.10.1"
