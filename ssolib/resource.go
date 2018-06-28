@@ -30,18 +30,6 @@ type Resoucrce struct {
 
 func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireScope(ctx, "read:resource", func(u iuser.User) (int, interface{}) {
-		if err := r.ParseForm(); err != nil {
-			log.Debug(err)
-			return http.StatusBadRequest, err
-		}
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
-		}
-		appId, err := strconv.Atoi(sAppId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
 		userName := r.Form.Get("username")
 		qUser := u
 		ub := getUserBackend(ctx)
