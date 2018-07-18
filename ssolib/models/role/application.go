@@ -35,28 +35,25 @@ CREATE TABLE IF NOT EXISTS pending_application (
 ) DEFAULT CHARSET=latin1`
 
 
+
 type Application struct {
-	Id               int    `json:"id"`
-	Applicant_email   string `json:"applicant_email"`
-	Target_type       string `json:"target_type"`
-	Target           TargetContent `json:"target"`
-	Reason           string `db:"reason" json:"reason"`
-	Status           string `json:"status"`
-	Commitor_email   string `json:"commitor_email"`
-	Created          string `json:"created"`
-	Updated          string `json:"updated"`
+	Id             int    `json:"id"`
+	ApplicantEmail string `db:"applicant_email" json:"applicant_email"`
+	TargetType     string `db: "target_type" json:"target_type"`
+	TargetContent  string `db: "target"`
+	Target         *TargetContent `json:"target"`
+	Reason         string `db:"reason" json:"reason"`
+	Status         string `json:"status"`
+	CommitorEmail  string `json:"commitor_email"`
+	Created        string `json:"created"`
+	Updated        string `json:"updated"`
 }
 
-type tempApplication struct {
-	Id               int    `json:"id"`
-	Applicant_email   string `db:"applicant_email" json:"applicant_email"`
-	Target_type       string `db: "target_type" json:"target_type"`
-	Target           string `json:"target"`
-	Reason           string `db:"reason" json:"reason"`
-	Status           string `json:"status"`
-	Commitor_email   string `json:"commitor_email"`
-	Created          string `json:"created"`
-	Updated          string `json:"updated"`
+func (a *Application) MarshalJson() ([]byte, error) {
+	ret := map[string]interface{}{
+		"id": a.Id,
+	}
+	return json.Marshal(ret)
 }
 
 type TargetContent struct {
@@ -64,16 +61,35 @@ type TargetContent struct {
 	MemberType string `json:"role"`
 }
 
-type Pending_Application struct {
-	Id               int    `json:"id"`
-	Application_Id    int `json:"application_id"`
-	Operator_email   string `json:"operator_email"`
-	Created          string `json:"created"`
-	Updated          string `json:"updated"`
+
+func (a *Application) ParseTarget() {
+	if a.Target == nil && a.TargetContent !="" {
+		json.Unmarshal([]byte(a.TargetContent), &(a.Target))
+	}
+	a.TargetContent = ""
+}
+
+func (a *Application) ParseOprEmail(emails []string) {
+	if a.Status == "emails sent" {
+		t, err:= json.Marshal(emails)
+		if err != nil {
+			log.Debug(err)
+		}
+		a.CommitorEmail = string(t)
+	}
 }
 
 
-func CreatePending_Application (ctx *models.Context, application_id int, opr_email string) (*Pending_Application, error) {
+type PendingApplication struct {
+	Id            int    `json:"id"`
+	ApplicationId int    `json:"application_id"`
+	OperatorEmail string `json:"operator_email"`
+	Created       string `json:"created"`
+	Updated       string `json:"updated"`
+}
+
+
+func CreatePendingApplication(ctx *models.Context, application_id int, opr_email string) (*PendingApplication, error) {
 	tx := ctx.DB.MustBegin()
 	result, err := tx.Exec(
 		"INSERT INTO pending_application (application_id, operator_email) VALUES(?, ?)",application_id, opr_email)
@@ -90,12 +106,12 @@ func CreatePending_Application (ctx *models.Context, application_id int, opr_ema
 		log.Debug(err)
 		return nil, err
 	}
-	return GetPending_Application(ctx, int(id))
+	return GetPendingApplication(ctx, int(id))
 }
 
 
-func GetPending_ApplicationByEmail (ctx *models.Context, email string) ([]Pending_Application, error) {
-	applicationstatus := []Pending_Application{}
+func GetPendingApplicationByEmail(ctx *models.Context, email string) ([]PendingApplication, error) {
+	applicationstatus := []PendingApplication{}
 	err := ctx.DB.Select(&applicationstatus, "SELECT * FROM pending_application WHERE operator_email=?", email)
 	if err == sql.ErrNoRows {
 		return nil, ErrResourceNotFound
@@ -106,8 +122,8 @@ func GetPending_ApplicationByEmail (ctx *models.Context, email string) ([]Pendin
 }
 
 
-func GetPending_Application(ctx *models.Context, id int) (*Pending_Application, error) {
-	applications := Pending_Application{}
+func GetPendingApplication(ctx *models.Context, id int) (*PendingApplication, error) {
+	applications := PendingApplication{}
 	err := ctx.DB.Get(&applications, "SELECT * FROM pending_application WHERE id=?", id)
 	if err == sql.ErrNoRows {
 		return nil, ErrResourceNotFound
@@ -117,9 +133,9 @@ func GetPending_Application(ctx *models.Context, id int) (*Pending_Application, 
 	return &applications, nil
 }
 
-func GetPending_ApplicationByApplicationId(ctx *models.Context, id int) ([]Pending_Application, error) {
+func GetPendingApplicationByApplicationId(ctx *models.Context, id int) ([]PendingApplication, error) {
 	log.Debug("start getting pending_application")
-	applications := []Pending_Application{}
+	applications := []PendingApplication{}
 	err := ctx.DB.Select(&applications, "SELECT * FROM pending_application WHERE application_id=?", id)
 	if err == sql.ErrNoRows {
 		log.Debug(err)
@@ -197,7 +213,7 @@ func FinishApplication (ctx *models.Context, id int, Status string, Commitor_ema
 
 
 func GetApplications(ctx *models.Context, email string, status string, from int, to int) ([]Application, error) {
-	applications := []tempApplication{}
+	applications := []Application{}
 	if status != "" {
 		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE applicant_email=? AND status=? ORDER BY created DESC LIMIT ?, ?", email, status, from, to)
 		if err != nil {
@@ -211,27 +227,15 @@ func GetApplications(ctx *models.Context, email string, status string, from int,
 	}
 	Applications := []Application{}
 	for _,a := range applications {
-		t := TargetContent{}
-		json.Unmarshal([]byte(a.Target), &t)
-		temp := Application{
-			Id: a.Id,
-			Applicant_email: a.Applicant_email,
-			Target_type: a.Target_type,
-			Target: t,
-			Reason: a.Reason,
-			Status: a.Status,
-			Commitor_email: a.Commitor_email,
-			Created: a.Created,
-			Updated: a.Updated,
-		}
-		Applications = append(Applications, temp)
+		a.ParseTarget()
+		Applications = append(Applications, a)
 	}
 
 	return Applications, nil
 }
 
 func GetAllApplications(ctx *models.Context, status string, from int, to int) ([]Application, error) {
-	applications := []tempApplication{}
+	applications := []Application{}
 	if status != "" {
 		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE status=? ORDER BY created DESC LIMIT ?, ?",status, from, to)
 		if err != nil {
@@ -245,20 +249,8 @@ func GetAllApplications(ctx *models.Context, status string, from int, to int) ([
 	}
 	Applications := []Application{}
 	for _,a := range applications {
-		t := TargetContent{}
-		json.Unmarshal([]byte(a.Target), &t)
-		temp := Application{
-			Id: a.Id,
-			Applicant_email: a.Applicant_email,
-			Target_type: a.Target_type,
-			Target: t,
-			Reason: a.Reason,
-			Status: a.Status,
-			Commitor_email: a.Commitor_email,
-			Created: a.Created,
-			Updated: a.Updated,
-		}
-		Applications = append(Applications, temp)
+		a.ParseTarget()
+		Applications = append(Applications, a)
 	}
 
 	return Applications, nil
@@ -266,26 +258,14 @@ func GetAllApplications(ctx *models.Context, status string, from int, to int) ([
 
 
 func GetApplication(ctx *models.Context, id int) (*Application, error) {
-	application := tempApplication{}
+	application := Application{}
 	err := ctx.DB.Get(&application, "SELECT * FROM application WHERE id=?", id)
 	if err != nil {
 		log.Debug(err)
 		return nil, err
 	}
-	t := TargetContent{}
-	json.Unmarshal([]byte(application.Target), &t)
-	temp := Application{
-		Id: application.Id,
-		Applicant_email: application.Applicant_email,
-		Target_type: application.Target_type,
-		Target: t,
-		Reason: application.Reason,
-		Status: application.Status,
-		Commitor_email: application.Commitor_email,
-		Created: application.Created,
-		Updated: application.Updated,
-	}
-	return &temp, nil
+	application.ParseTarget()
+	return &application, nil
 }
 
 func RecallApplication(ctx *models.Context, id int) (error) {

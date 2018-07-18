@@ -39,10 +39,10 @@ func applyEnterGroup(mctx *models.Context, id int, target role.TargetContent, em
 			log.Debug(userId)
 			user, err := back.GetUser(userId)
 			if err == nil {
-				admin_email := user.GetProfile().GetEmail()
-				log.Debug(admin_email)
+				adminEmail := user.GetProfile().GetEmail()
+				log.Debug(adminEmail)
 				admin_num++
-				role.CreatePending_Application(mctx, res.Id, admin_email)
+				role.CreatePendingApplication(mctx, res.Id, adminEmail)
 			}
 		}
 	}
@@ -59,10 +59,10 @@ func applyEnterGroup(mctx *models.Context, id int, target role.TargetContent, em
 
 
 type Application struct {
-	Description string `json:"description"`
+	Description string               `json:"description"`
 	Target      []role.TargetContent `json:"target"`
-	Target_type string `json:"target_type"`
-	Reason      string `json:"reason"`
+	TargetType  string               `json:"target_type"`
+	Reason      string               `json:"reason"`
 }
 
 
@@ -111,9 +111,9 @@ func CheckIfQualified(ctx *models.Context, group_ids []int, id int, target role.
 }
 
 type ApplicationResp struct {
-	Application_list []*role.Application `json:"application_list"`
-	Alreadyin []string `json:"alreadyin"`
-	Err error `json:"err"`
+	ApplicationList []*role.Application `json:"application_list"`
+	Alreadyin       []string            `json:"alreadyin"`
+	Err             error               `json:"err"`
 }
 
 
@@ -126,8 +126,8 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 			return http.StatusBadRequest, err
 		}
 		email := u.GetProfile().GetEmail()
-		if req.Target_type == "group" {
-			group_ids, err := getDirectGroupsOfUser(mctx, u)
+		if req.TargetType == "group" {
+			groupIds, err := getDirectGroupsOfUser(mctx, u)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
@@ -137,7 +137,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 					return http.StatusBadRequest, err
 				}
 				id := group.Id
-				qualified, err := CheckIfQualified(mctx, group_ids, id, req.Target[0], u)
+				qualified, err := CheckIfQualified(mctx, groupIds, id, req.Target[0], u)
 				if err != nil {
 					return http.StatusBadRequest, err
 				}
@@ -160,7 +160,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 						break
 					}
 					id := group.Id
-					qualified, err := CheckIfQualified(mctx, group_ids, id, req.Target[i], u)
+					qualified, err := CheckIfQualified(mctx, groupIds, id, req.Target[i], u)
 					if err != nil {
 						err1 = err
 						break
@@ -219,12 +219,12 @@ func getDirectGroupsOfUser(ctx *models.Context, user iuser.User) ([]int, error) 
 type ApplicationStatus struct {
 	server.BaseResource
 }
-type application_status struct {
-	Id int `json:"id"`
-	Target_type string `json:"target_type"`
-	Target role.TargetContent `json:"target"`
-	Status string `json:"status"`
-	Operator_list []string `json:"opr_emails"`
+type applicationStatus struct {
+	Id           int                 `json:"id"`
+	TargetType   string              `json:"target_type"`
+	Target       *role.TargetContent `json:"target"`
+	Status       string              `json:"status"`
+	OperatorList []string            `json:"opr_emails"`
 }
 
 func (as ApplicationStatus) Get(ctx context.Context, r *http.Request) (int, interface{}) {
@@ -259,27 +259,27 @@ func (as ApplicationStatus) Get(ctx context.Context, r *http.Request) (int, inte
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		resp := []application_status{}
+		resp := []applicationStatus{}
 		for _, a := range applications {
-			operator_list := []string{}
+			operatorList := []string{}
 			if a.Status == "emails sent" {
-				pend_applications, err := role.GetPending_ApplicationByApplicationId(mctx, a.Id)
+				pend_applications, err := role.GetPendingApplicationByApplicationId(mctx, a.Id)
 				log.Debug(pend_applications)
 				if err != nil {
 					return http.StatusBadRequest, err
 				}
 				for _, p := range pend_applications {
-					operator_list = append(operator_list, p.Operator_email)
+					operatorList = append(operatorList, p.OperatorEmail)
 				}
 			} else {
-				operator_list = append(operator_list, a.Commitor_email)
+				operatorList = append(operatorList, a.CommitorEmail)
 			}
-			temp := application_status{
-				Id:            a.Id,
-				Target_type:   a.Target_type,
-				Target:        a.Target,
-				Status:        a.Status,
-				Operator_list: operator_list,
+			temp := applicationStatus{
+				Id:           a.Id,
+				TargetType:   a.TargetType,
+				Target:       a.Target,
+				Status:       a.Status,
+				OperatorList: operatorList,
 			}
 			resp = append(resp, temp)
 		}
@@ -294,17 +294,6 @@ type ApplicationQuery struct {
 	server.BaseResource
 }
 
-type Application_list struct {
-	Id               int    `json:"id"`
-	ApplicantEmail   string `json:"applicant_email"`
-	TargetType       string `json:"target_type"`
-	Target           role.TargetContent `json:"target"`
-	Reason           string `db:"reason" json:"reason"`
-	Status           string `json:"status"`
-	Opr_emails       []string `json:"opr_emails"`
-	Created          string `json:"created"`
-	Updated          string `json:"updated"`
-}
 func (aq ApplicationQuery) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
@@ -356,32 +345,20 @@ func (aq ApplicationQuery) Get(ctx context.Context, r *http.Request) (int, inter
 				}
 				Applications = applications
 			}
-			resp := []Application_list{}
+			resp := []role.Application{}
 			for _,a := range Applications {
-				operator_list := []string{}
+				operatorList := []string{}
 				if a.Status == "emails sent" {
-					pend_applications, err := role.GetPending_ApplicationByApplicationId(mctx, a.Id)
+					pendApplications, err := role.GetPendingApplicationByApplicationId(mctx, a.Id)
 					if err != nil {
 						return http.StatusBadRequest, err
 					}
-					for _, p := range pend_applications {
-						operator_list = append(operator_list, p.Operator_email)
+					for _, p := range pendApplications {
+						operatorList = append(operatorList, p.OperatorEmail)
 					}
-				} else {
-					operator_list = append(operator_list, a.Commitor_email)
+					a.ParseOprEmail(operatorList)
 				}
-				temp := Application_list{
-					Id:            a.Id,
-					ApplicantEmail: a.Applicant_email,
-					Reason: a.Reason,
-					TargetType:   a.Target_type,
-					Target:        a.Target,
-					Status:        a.Status,
-					Opr_emails: operator_list,
-					Created: a.Created,
-					Updated: a.Updated,
-				}
-				resp = append(resp, temp)
+				resp = append(resp, a)
 			}
 			return http.StatusOK, resp
 		}
@@ -407,7 +384,7 @@ func (ad ApplicationDelete) Delete(ctx context.Context, r *http.Request) (int, i
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		if application.Applicant_email != u.GetProfile().GetEmail() {
+		if application.ApplicantEmail != u.GetProfile().GetEmail() {
 			return http.StatusBadRequest, "only applicant can delete application"
 		}
 		err = role.RecallApplication(mctx, Id)
@@ -428,7 +405,7 @@ func (aa ApplicationApprove) Get(ctx context.Context, r *http.Request) (int, int
 	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
 		email := u.GetProfile().GetEmail()
-		application_status_list, err := role.GetPending_ApplicationByEmail(mctx, email)
+		application_status_list, err := role.GetPendingApplicationByEmail(mctx, email)
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
@@ -463,7 +440,7 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 			log.Debug(err)
 			return http.StatusBadRequest, err
 		}
-		Ttype := application.Target_type
+		Ttype := application.TargetType
 		if Ttype == "group" {
 			name := application.Target.GroupName
 			group, err := group.GetGroupByName(mctx, name)
@@ -480,7 +457,7 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 				return http.StatusBadRequest, "not qualified for the operation"
 			}
 			back := mctx.Back
-			user, err := back.GetUserByFeature(application.Applicant_email)
+			user, err := back.GetUserByFeature(application.ApplicantEmail)
 			log.Debug(user)
 			if action == "approve" {
 				if application.Target.MemberType == "admin" {
