@@ -418,9 +418,7 @@ type ApplicationHandle struct {
 	server.BaseResource
 }
 
-type RL struct {
-	role int
-}
+
 func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
@@ -447,13 +445,13 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
-			R := RL{}
+			R := 10
 			err = mctx.DB.Get(&R, "SELECT role FROM user_group WHERE user_id =? AND group_id=?",
 				u.GetId(), group.Id)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
-			if R.role != 1 {
+			if R != 1 {
 				return http.StatusBadRequest, "not qualified for the operation"
 			}
 			back := mctx.Back
