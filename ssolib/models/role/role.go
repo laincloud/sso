@@ -64,6 +64,8 @@ func InitDatabase(ctx *models.Context) {
 	ctx.DB.MustExec(createRoleTableSQL)
 	ctx.DB.MustExec(createResourceTableSQL)
 	ctx.DB.MustExec(createRoleResourceTableSQL)
+	ctx.DB.MustExec(createApplicationTableSQL)
+	ctx.DB.MustExec(createPENDING_ApplicationStatusTableSQL)
 }
 
 func CreateRoleWithGroup(ctx *models.Context, roleName string, fullName string, appId int, groupId int) (*Role, error) {
