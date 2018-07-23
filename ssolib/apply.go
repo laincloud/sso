@@ -102,7 +102,7 @@ func CheckIfQualified(ctx *models.Context, group_ids []int, id int, target role.
 		if err != nil {
 			return false, err
 		}
-		if role == 0 && target.MemberType == "admin" {
+		if role == 0 && target.Role == "admin" {
 			return true, nil
 		}
 		return false, nil
@@ -132,7 +132,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 				return http.StatusBadRequest, err
 			}
 			if len(req.Target) == 1 {
-				group, err := group.GetGroupByName(mctx, req.Target[0].GroupName)
+				group, err := group.GetGroupByName(mctx, req.Target[0].Name)
 				if err != nil {
 					return http.StatusBadRequest, err
 				}
@@ -154,7 +154,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 				var alreadyin []string
 				var err1 error
 				for i := 0; i < len(req.Target); i++ {
-					group, err := group.GetGroupByName(mctx, req.Target[i].GroupName)
+					group, err := group.GetGroupByName(mctx, req.Target[i].Name)
 					if err != nil {
 						err1 = err
 						break
@@ -173,7 +173,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 						}
 						application_list = append(application_list, resp)
 					} else {
-						alreadyin = append(alreadyin, req.Target[i].GroupName)
+						alreadyin = append(alreadyin, req.Target[i].Name)
 					}
 				}
 				temp := ApplicationResp{
@@ -219,13 +219,6 @@ func getDirectGroupsOfUser(ctx *models.Context, user iuser.User) ([]int, error) 
 type ApplicationStatus struct {
 	server.BaseResource
 }
-type applicationStatus struct {
-	Id           int                 `json:"id"`
-	TargetType   string              `json:"target_type"`
-	Target       *role.TargetContent `json:"target"`
-	Status       string              `json:"status"`
-	OperatorList []string            `json:"opr_emails"`
-}
 
 func (as ApplicationStatus) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
@@ -259,10 +252,10 @@ func (as ApplicationStatus) Get(ctx context.Context, r *http.Request) (int, inte
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		resp := []applicationStatus{}
+		resp := []role.Application{}
 		for _, a := range applications {
-			operatorList := []string{}
 			if a.Status == "emails sent" {
+				operatorList := []string{}
 				pend_applications, err := role.GetPendingApplicationByApplicationId(mctx, a.Id)
 				log.Debug(pend_applications)
 				if err != nil {
@@ -271,17 +264,9 @@ func (as ApplicationStatus) Get(ctx context.Context, r *http.Request) (int, inte
 				for _, p := range pend_applications {
 					operatorList = append(operatorList, p.OperatorEmail)
 				}
-			} else {
-				operatorList = append(operatorList, a.CommitorEmail)
+				a.ParseOprEmail(operatorList)
 			}
-			temp := applicationStatus{
-				Id:           a.Id,
-				TargetType:   a.TargetType,
-				Target:       a.Target,
-				Status:       a.Status,
-				OperatorList: operatorList,
-			}
-			resp = append(resp, temp)
+			resp = append(resp, a)
 		}
 		return http.StatusOK, resp
 	})
@@ -440,25 +425,25 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 		}
 		Ttype := application.TargetType
 		if Ttype == "group" {
-			name := application.Target.GroupName
+			name := application.TargetContent.Name
 			group, err := group.GetGroupByName(mctx, name)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
-			R := 10
+			R := [1]int{}
 			err = mctx.DB.Get(&R, "SELECT role FROM user_group WHERE user_id =? AND group_id=?",
 				u.GetId(), group.Id)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
-			if R != 1 {
+			if R[0] != 1 {
 				return http.StatusBadRequest, "not qualified for the operation"
 			}
 			back := mctx.Back
 			user, err := back.GetUserByFeature(application.ApplicantEmail)
 			log.Debug(user)
 			if action == "approve" {
-				if application.Target.MemberType == "admin" {
+				if application.TargetContent.Role == "admin" {
 					log.Debug("adding member")
 					err := group.AddMember(mctx, user, 1)
 					if err != nil {

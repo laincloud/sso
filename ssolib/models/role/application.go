@@ -37,16 +37,16 @@ CREATE TABLE IF NOT EXISTS pending_application (
 
 
 type Application struct {
-	Id             int    `json:"id"`
-	ApplicantEmail string `db:"applicant_email" json:"applicant_email"`
-	TargetType     string `db: "target_type" json:"target_type"`
-	TargetContent  string `db: "target"`
-	Target         *TargetContent `json:"target"`
-	Reason         string `db:"reason" json:"reason"`
-	Status         string `json:"status"`
-	CommitorEmail  string `json:"commitor_email"`
-	Created        string `json:"created"`
-	Updated        string `json:"updated"`
+	Id             int            `json:"id"`
+	ApplicantEmail string         `db:"applicant_email" json:"applicant_email"`
+	TargetType     string         `db:"target_type" json:"target_type"`
+	TargetStr      string         `db:"target"`
+	TargetContent  *TargetContent `json:"target"`
+	Reason         string         `db:"reason" json:"reason"`
+	Status         string         `json:"status"`
+	CommitorEmail  string         `json:"commitor_email"`
+	Created        string         `json:"created"`
+	Updated        string         `json:"updated"`
 }
 
 func (a *Application) MarshalJson() ([]byte, error) {
@@ -57,16 +57,16 @@ func (a *Application) MarshalJson() ([]byte, error) {
 }
 
 type TargetContent struct {
-	GroupName string `json:"name"`
-	MemberType string `json:"role"`
+	Name string `json:"name"`
+	Role string `json:"role"`
 }
 
 
 func (a *Application) ParseTarget() {
-	if a.Target == nil && a.TargetContent !="" {
-		json.Unmarshal([]byte(a.TargetContent), &(a.Target))
+	if a.TargetStr == nil && a.TargetStr !="" {
+		json.Unmarshal([]byte(a.TargetStr), &(a.TargetStr))
 	}
-	a.TargetContent = ""
+	a.TargetStr = ""
 }
 
 func (a *Application) ParseOprEmail(emails []string) {
