@@ -44,6 +44,59 @@ func GetTestMysqlDSN() string {
 	return mysqlDSN
 }
 
+func GetTestMysqlDSN2() string {
+	mysqlDSN := os.Getenv("TEST_MYSQL_DSN")
+	if mysqlDSN == "" {
+		mysqlDSN = "test_ssoldap:test_ssoldap@tcp(10.143.248.119:10001)/ssoldap"
+	} else {
+		if !strings.HasSuffix(mysqlDSN, "_test") {
+			log.Fatal("Database must end with _test")
+		}
+	}
+	return mysqlDSN
+}
+
+
+func NewTestHelper2(t *testing.T) TestHelper {
+	log.EnableDebug()
+	mysqlDSN := GetTestMysqlDSN2()
+	db, err := sqlx.Connect("mysql", mysqlDSN)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	siteURL, err := url.Parse("http://example.com")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := &models.Context{
+		DB:         db,
+		SSOSiteURL: siteURL,
+		SMTPAddr:   "smtp.example.com:25",
+		EmailFrom:  "sso@example.com",
+		Back:       &testbackend.TestBackend{},
+	}
+
+	clearDatabase2(ctx)
+
+	ctx.Lock = lock.New(mysqlDSN, "testlock")
+
+	return TestHelper{
+		T:   t,
+		Ctx: ctx,
+	}
+}
+func clearDatabase2(ctx *models.Context) {
+	log.Debug("testhelper.clearDatabase")
+	tables := []string{"application","pending_application"}
+	tx := ctx.DB.MustBegin()
+	for _, table := range tables {
+		tx.MustExec(fmt.Sprintf("TRUNCATE TABLE `%s`", table))
+	}
+	tx.Commit()
+}
+
 func NewTestHelper(t *testing.T) TestHelper {
 	log.EnableDebug()
 	mysqlDSN := GetTestMysqlDSN()
