@@ -63,8 +63,8 @@ type TargetContent struct {
 
 
 func (a *Application) ParseTarget() {
-	if a.TargetStr == nil && a.TargetStr !="" {
-		json.Unmarshal([]byte(a.TargetStr), &(a.TargetStr))
+	if a.TargetContent == nil && a.TargetStr !="" {
+		json.Unmarshal([]byte(a.TargetStr), &(a.TargetContent))
 	}
 	a.TargetStr = ""
 }
