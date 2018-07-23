@@ -1,9 +1,8 @@
-package role
+package application
 
 import (
 	"github.com/mijia/sweb/log"
 	"github.com/laincloud/sso/ssolib/models"
-	"database/sql"
 	"encoding/json"
 )
 
@@ -15,7 +14,7 @@ CREATE TABLE IF NOT EXISTS application (
 	target VARCHAR(128) CHARACTER SET utf8 NOT NULL,
 	reason VARCHAR(1024) CHARACTER SET utf8 NOT NULL,
     status VARCHAR(64) NULL DEFAULT NULL,
-	commitor_email VARCHAR(64) NULL DEFAULT NULL,
+	commit_email VARCHAR(64) NULL DEFAULT NULL,
 	created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
@@ -35,6 +34,10 @@ CREATE TABLE IF NOT EXISTS pending_application (
 ) DEFAULT CHARSET=latin1`
 
 
+func InitDatabase(ctx *models.Context) {
+	ctx.DB.MustExec(createApplicationTableSQL)
+	ctx.DB.MustExec(createPENDING_ApplicationStatusTableSQL)
+}
 
 type Application struct {
 	Id             int            `json:"id"`
@@ -42,9 +45,9 @@ type Application struct {
 	TargetType     string         `db:"target_type" json:"target_type"`
 	TargetStr      string         `db:"target"`
 	TargetContent  *TargetContent `json:"target"`
-	Reason         string         `db:"reason" json:"reason"`
+	Reason         string         `json:"reason"`
 	Status         string         `json:"status"`
-	CommitorEmail  string         `json:"commitor_email"`
+	CommitEmail    string         `db:"commit_email" json:"commit_email"`
 	Created        string         `json:"created"`
 	Updated        string         `json:"updated"`
 }
@@ -70,29 +73,29 @@ func (a *Application) ParseTarget() {
 }
 
 func (a *Application) ParseOprEmail(emails []string) {
-	if a.Status == "emails sent" {
+	if a.Status == "initialled" {
 		t, err:= json.Marshal(emails)
 		if err != nil {
 			log.Debug(err)
 		}
-		a.CommitorEmail = string(t)
+		a.CommitEmail = string(t)
 	}
 }
 
 
 type PendingApplication struct {
 	Id            int    `json:"id"`
-	ApplicationId int    `json:"application_id"`
-	OperatorEmail string `json:"operator_email"`
+	ApplicationId int    `db:"application_id" json:"application_id"`
+	OperatorEmail string `db:"operator_email" json:"operator_email"`
 	Created       string `json:"created"`
 	Updated       string `json:"updated"`
 }
 
 
-func CreatePendingApplication(ctx *models.Context, application_id int, opr_email string) (*PendingApplication, error) {
+func CreatePendingApplication(ctx *models.Context, applicationId int, oprEmail string) (*PendingApplication, error) {
 	tx := ctx.DB.MustBegin()
 	result, err := tx.Exec(
-		"INSERT INTO pending_application (application_id, operator_email) VALUES(?, ?)",application_id, opr_email)
+		"INSERT INTO pending_application (application_id, operator_email) VALUES(?, ?)",applicationId, oprEmail)
 	if err2 := tx.Commit(); err2 != nil {
 		log.Debug(err2)
 		return nil, err2
@@ -113,9 +116,7 @@ func CreatePendingApplication(ctx *models.Context, application_id int, opr_email
 func GetPendingApplicationByEmail(ctx *models.Context, email string) ([]PendingApplication, error) {
 	applicationstatus := []PendingApplication{}
 	err := ctx.DB.Select(&applicationstatus, "SELECT * FROM pending_application WHERE operator_email=?", email)
-	if err == sql.ErrNoRows {
-		return nil, ErrResourceNotFound
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return applicationstatus, nil
@@ -125,9 +126,7 @@ func GetPendingApplicationByEmail(ctx *models.Context, email string) ([]PendingA
 func GetPendingApplication(ctx *models.Context, id int) (*PendingApplication, error) {
 	applications := PendingApplication{}
 	err := ctx.DB.Get(&applications, "SELECT * FROM pending_application WHERE id=?", id)
-	if err == sql.ErrNoRows {
-		return nil, ErrResourceNotFound
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return &applications, nil
@@ -137,17 +136,14 @@ func GetPendingApplicationByApplicationId(ctx *models.Context, id int) ([]Pendin
 	log.Debug("start getting pending_application")
 	applications := []PendingApplication{}
 	err := ctx.DB.Select(&applications, "SELECT * FROM pending_application WHERE application_id=?", id)
-	if err == sql.ErrNoRows {
-		log.Debug(err)
-		return nil, ErrResourceNotFound
-	} else if err != nil {
+	if err != nil {
 		log.Debug(err)
 		return nil, err
 	}
 	return applications, nil
 }
 
-func CreateApplication (ctx *models.Context, applicant_email string, target_type string, target *TargetContent, Reason string) (*Application, error) {
+func CreateApplication (ctx *models.Context, applicantEmail string, targetType string, target *TargetContent, Reason string) (*Application, error) {
 	log.Debug("CreateApplication")
 	tx := ctx.DB.MustBegin()
 	t, err:= json.Marshal(target)
@@ -155,8 +151,8 @@ func CreateApplication (ctx *models.Context, applicant_email string, target_type
 		return nil, err
 	}
 	result, err := tx.Exec(
-		"INSERT INTO application (applicant_email, target_type, target, reason, status, commitor_email) VALUES(?, ?, ?, ?, ?, ?)",
-		applicant_email, target_type, string(t), Reason, "None email sent", "NULL")
+		"INSERT INTO application (applicant_email, target_type, target, reason, status, commit_email) VALUES(?, ?, ?, ?, ?, ?)",
+		applicantEmail, targetType, string(t), Reason, "initialled", "NULL")
 	if err != nil {
 		log.Debug(err)
 		return nil, err
@@ -175,10 +171,10 @@ func CreateApplication (ctx *models.Context, applicant_email string, target_type
 }
 
 
-func UpdateApplication (ctx *models.Context, id int, Status string, Commitor_email string) (*Application, error) {
+func UpdateApplication (ctx *models.Context, id int, Status string, CommitEmail string) (*Application, error) {
 	tx := ctx.DB.MustBegin()
 	_, err := tx.Exec(
-		"UPDATE application SET status=?, commitor_email=? WHERE id=?",Status, Commitor_email, id)
+		"UPDATE application SET status=?, commit_email=? WHERE id=?",Status, CommitEmail, id)
 	if err != nil {
 		log.Debug(err)
 		return nil, err
@@ -190,10 +186,10 @@ func UpdateApplication (ctx *models.Context, id int, Status string, Commitor_ema
 	return GetApplication(ctx, id)
 }
 
-func FinishApplication (ctx *models.Context, id int, Status string, Commitor_email string) (*Application, error) {
+func FinishApplication (ctx *models.Context, id int, Status string, CommitEmail string) (*Application, error) {
 	tx := ctx.DB.MustBegin()
 	_, err := tx.Exec(
-		"UPDATE application SET status=?, commitor_email=? WHERE id=?",Status, Commitor_email, id)
+		"UPDATE application SET status=?, commit_email=? WHERE id=?",Status, CommitEmail, id)
 	if err != nil {
 		log.Debug(err)
 		return nil, err
@@ -215,12 +211,12 @@ func FinishApplication (ctx *models.Context, id int, Status string, Commitor_ema
 func GetApplications(ctx *models.Context, email string, status string, from int, to int) ([]Application, error) {
 	applications := []Application{}
 	if status != "" {
-		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE applicant_email=? AND status=? ORDER BY created DESC LIMIT ?, ?", email, status, from, to)
+		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE applicant_email=? AND status=? ORDER BY created DESC LIMIT ?, ?", email, status, from, to - from)
 		if err != nil {
 			return nil, err
 		}
 	}else {
-		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE applicant_email=? ORDER BY created DESC LIMIT ?, ?", email, from, to)
+		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE applicant_email=? ORDER BY created DESC LIMIT ?, ?", email, from, to - from)
 		if err != nil {
 			return nil, err
 		}
@@ -237,12 +233,12 @@ func GetApplications(ctx *models.Context, email string, status string, from int,
 func GetAllApplications(ctx *models.Context, status string, from int, to int) ([]Application, error) {
 	applications := []Application{}
 	if status != "" {
-		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE status=? ORDER BY created DESC LIMIT ?, ?",status, from, to)
+		err := ctx.DB.Select(&applications, "SELECT * FROM application WHERE status=? ORDER BY created DESC LIMIT ?, ?",status, from, to - from)
 		if err != nil {
 			return nil, err
 		}
 	}else {
-		err := ctx.DB.Select(&applications, "SELECT * FROM application ORDER BY created DESC LIMIT ?, ?", from, to)
+		err := ctx.DB.Select(&applications, "SELECT * FROM application ORDER BY created DESC LIMIT ?, ?", from, to - from)
 		if err != nil {
 			return nil, err
 		}
