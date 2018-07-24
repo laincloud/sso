@@ -47,7 +47,7 @@ func GetTestMysqlDSN() string {
 func GetTestMysqlDSN2() string {
 	mysqlDSN := os.Getenv("TEST_MYSQL_DSN")
 	if mysqlDSN == "" {
-		mysqlDSN = "test_ssoldap:test_ssoldap@tcp(10.143.248.119:10001)/ssoldap"
+		mysqlDSN = "test:test@tcp(0.0.0.0:32768)/sso_test"
 	} else {
 		if !strings.HasSuffix(mysqlDSN, "_test") {
 			log.Fatal("Database must end with _test")
@@ -78,7 +78,7 @@ func NewTestHelper2(t *testing.T) TestHelper {
 		Back:       &testbackend.TestBackend{},
 	}
 
-	clearDatabase2(ctx)
+	clearDatabase(ctx)
 
 	ctx.Lock = lock.New(mysqlDSN, "testlock")
 
@@ -87,7 +87,7 @@ func NewTestHelper2(t *testing.T) TestHelper {
 		Ctx: ctx,
 	}
 }
-func clearDatabase2(ctx *models.Context) {
+/*func clearDatabase2(ctx *models.Context) {
 	log.Debug("testhelper.clearDatabase")
 	tables := []string{"application","pending_application"}
 	tx := ctx.DB.MustBegin()
@@ -95,7 +95,7 @@ func clearDatabase2(ctx *models.Context) {
 		tx.MustExec(fmt.Sprintf("TRUNCATE TABLE `%s`", table))
 	}
 	tx.Commit()
-}
+}*/
 
 func NewTestHelper(t *testing.T) TestHelper {
 	log.EnableDebug()

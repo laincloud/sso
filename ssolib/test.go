@@ -10,9 +10,11 @@ import (
 	"github.com/laincloud/sso/ssolib/models/oauth2"
 	"github.com/laincloud/sso/ssolib/models/testbackend"
 	"github.com/laincloud/sso/ssolib/models/testhelper"
+	"github.com/laincloud/sso/ssolib/models/application"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
+	"github.com/laincloud/sso/ssolib/models/role"
 )
 
 var (
@@ -29,7 +31,7 @@ func NewTestHelper(t *testing.T) *TestHelper {
 	t.Log(testBack)
 	testBack = &testbackend.TestBackend{}
 	t.Log(testBack)
-	mctx := testhelper.NewTestHelper(t).Ctx
+	mctx := testhelper.NewTestHelper2(t).Ctx
 	mctx.Back = testBack
 	ctx = context.WithValue(ctx, "mctx", mctx)
 	ctx = context.WithValue(ctx, "emailSuffix", "@example.com")
@@ -39,6 +41,8 @@ func NewTestHelper(t *testing.T) *TestHelper {
 	group.EnableNestedGroup()
 	group.InitDatabase(mctx)
 	oauth2.InitDatabase(mctx)
+	application.InitDatabase(mctx)
+	role.InitDatabase(mctx)
 
 	th := &TestHelper{
 		T:   t,
