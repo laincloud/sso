@@ -60,7 +60,7 @@ type Application struct {
 
 func GetTypeOfUser(ctx *models.Context, id int, groupId int) (int, error){
 	role := []int{}
-	err := ctx.DB.Get(&role, "SELECT role FROM user_group WHERE user_id=? AND group_id=?", id, groupId)
+	err := ctx.DB.Select(&role, "SELECT role FROM user_group WHERE user_id=? AND group_id=?", id, groupId)
 	log.Debug(err)
 	if err != nil {
 		return -1, err
@@ -72,6 +72,9 @@ func GetTypeOfUser(ctx *models.Context, id int, groupId int) (int, error){
 func CheckIfInGroup(group_ids []int, id int) (bool) {
 	left := 0;
 	right := len(group_ids)
+	if len(group_ids) == 0 {
+		return false
+	}
 	Exist := false
 	for left <= right {
 		mid := left + (right-left)/2
@@ -167,12 +170,15 @@ func (ay Apply) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 					return http.StatusBadRequest, err
 				}
 				Applications = applications
+				log.Debug(applicantEmail)
 			} else if islain && applicantEmail != currentEmail {
 				applications, err := application.GetApplications(mctx, applicantEmail, Status, from, to)
 				if err != nil {
 					return http.StatusBadRequest, err
 				}
 				Applications = applications
+			} else {
+				return http.StatusBadRequest, "not qualified for the operation"
 			}
 			resp := []application.Application{}
 			for _,a := range Applications {
@@ -205,6 +211,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 		if err := form.ParamBodyJson(r, &req); err != nil {
 			return http.StatusBadRequest, err
 		}
+		log.Debug(u)
 		email := u.GetProfile().GetEmail()
 		if req.TargetType == "group" {
 			groupIds, err := getDirectGroupsOfUser(mctx, u)
@@ -219,6 +226,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 				id := group.Id
 				qualified, err := CheckIfQualified(mctx, groupIds, id, req.Target[0], u)
 				if err != nil {
+					log.Debug(err)
 					return http.StatusInternalServerError , err
 				}
 				if qualified {
@@ -239,7 +247,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 
 					}
 				}
-				var applications []*application.Application
+				var applications []application.Application
 				for i := 0; i < len(req.Target); i++ {
 					g, err := group.GetGroupByName(mctx, req.Target[i].Name)
 					qualified, err := CheckIfQualified(mctx, groupIds, g.Id, req.Target[i], u)
@@ -247,7 +255,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 						return http.StatusInternalServerError, err
 					}
 					if !qualified {
-						temp := &application.Application{
+						temp := application.Application{
 							TargetType:    req.TargetType,
 							TargetContent: &req.Target[i],
 							Status:        "existed",
@@ -257,7 +265,7 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 						resp, err := applyEnterGroup(mctx, g.Id, req.Target[i], email, req.Reason)
 						if err == nil {
 							if resp != nil {
-								applications = append(applications, resp)
+								applications = append(applications, *resp)
 							}
 						} else {
 							return http.StatusBadRequest, applications
