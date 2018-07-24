@@ -505,8 +505,219 @@
                     }
                 ]
             }
+        },
+        "/apply": {
+            "post": {
+                "summary": "发起申请",
+                "description": "申请描述 \n",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "target_type",
+                        "required": true,
+                        "type": "string",
+                        "description": "申请的类型"
+                    },
+                    {
+                        "in": "body",
+                        "name": "reason",
+                        "required": true,
+                        "type": "string",
+                        "description": "申请的理由"
+                    },
+                    {
+                        "in": "body",
+                        "name": "target",
+                        "required": true,
+                        "description": "申请内容",
+                        "schema": {
+                            "$ref": "#/definitions/Target"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "申请成功",
+                        "schema": {
+                            "$ref": "#/definitions/ApplicationResp"
+                        }
+                    }
+                    },
+                    "400": {
+                        "description": "申请失败"
+                    }
+                }
+            },
+        "apply/query": {
+            "get": {
+                "summary": "lain组成员查看申请",
+                "description": "申请查看 \n",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "required": false,
+                        "type": "string",
+                        "description": "起始条目，默认为50条"
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "required": false,
+                        "type": "string",
+                        "description": "终止条目"
+                    },
+                    {
+                        "in": "query",
+                        "name": "applicant_email",
+                        "required": false,
+                        "type": "string",
+                        "description": "被查看者邮箱，筛选条件"
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "required": false,
+                        "type": "string",
+                        "description": "申请状态，筛选条件"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查看成功",
+                        "type": "array",
+                        "items": {
+                            "schema": {
+                                "$ref": "#/definitions/Application"
+                            }
+                        }
+                    }
+                },
+                "400": {
+                    "description": "查看失败"
+                }
+            }
+        },
+        "apply/status": {
+            "get": {
+                "summary": "查看用户申请",
+                "description": "查看个人申请 \n",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "required": false,
+                        "type": "string",
+                        "description": "起始条目，默认为50条"
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "required": false,
+                        "type": "string",
+                        "description": "终止条目"
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "required": false,
+                        "type": "string",
+                        "description": "申请状态，筛选条件"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查看成功",
+                        "schema": {
+                            "$ref": "#/definitions/Application"
+                        }
+                    }
+                },
+                "400": {
+                    "description": "查看失败"
+                }
+            }
+        },
+        "apply/status/{application_id}": {
+            "delete": {
+                "summary": "撤回用户申请",
+                "description": "撤回个人申请 \n",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "application_id",
+                        "required": true,
+                        "type": "string",
+                        "description": "申请id"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "撤回成功",
+                    }
+                },
+                "400": {
+                    "description": "撤回失败"
+                }
+            }
+        },
+        "apply/approve": {
+            "get": {
+                "summary": "查看需要审批的申请",
+                "description": "查看需要审批的申请 \n",
+                "parameters": [
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查看成功",
+                        "type": "array",
+                        "item": {
+                            "schema": {
+                                "$ref": "#/definitions/Application"
+                            }
+                        }
+                    }
+                },
+                "400": {
+                    "description": "查看失败"
+                }
+            }
+        },
+        "apply/handle/{application_id}": {
+            "get": {
+                "summary": "处理用户申请",
+                "description": "处理申请 \n",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "application_id",
+                        "required": true,
+                        "type": "string",
+                        "description": "处理中的申请id"
+                    },
+                    {
+                        "in": "query",
+                        "name": "action",
+                        "required": true,
+                        "type": "string",
+                        "description": "approve/reject"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "处理成功",
+                        "schema": {
+                            "$ref": "#/definitions/Application"
+                        }
+                    }
+                },
+                "400": {
+                    "description": "处理失败"
+                }
+            }
         }
     },
+
     "securityDefinitions": {
         "oauth": {
             "type": "oauth2",
@@ -675,6 +886,71 @@
         "UserEmail": {
             "type": "string",
             "description": "以 domain 参数结尾的 email 地址, 默认为 @example.com"
+        },
+        "Target": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "ApplicationResp": {
+            "type": "object",
+            "properties": {
+                "application_list":{
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Application",
+                        "description": "申请成功的列表"
+                    }
+                },
+                "alreadyin":{
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "用户已经在的群组"
+                    }
+                },
+                "err":{
+                    "type":"error"
+                }
+            }
+        },
+        "Application": {
+            "type": "object",
+            "properties": {
+                "id":{
+                    "type": "integer"
+                },
+                "applicant_email": {
+                    "type": "string"
+                },
+                "target_type": {
+                    "type":"string"
+                },
+                "target": {
+                    "$ref": "#/definitions/Target"
+                },
+                "reason": {
+                    "type":"string"
+                },
+                "status": {
+                    "type":"string"
+                },
+                "commitor_email": {
+                    "type":"string"
+                },
+                "created": {
+                    "type":"string"
+                },
+                "updated": {
+                    "type":"string"
+                }
+            }
         }
     }
 }
