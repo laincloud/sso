@@ -105,6 +105,7 @@ func ListGroups(ctx *models.Context, ids ...int) ([]Group, error) {
 
 	groups := []Group{}
 	err := ctx.DB.Select(&groups, query, args...)
+	log.Debug(err)
 	return groups, err
 }
 
