@@ -5,3 +5,8 @@ public/images
 sso-0.1*
 ssoserver/assets_gen.go
 assets_map.json
+.idea/misc.xml
+.idea/modules.xml
+.idea/sso.iml
+.idea/vcs.xml
+.idea/workspace.xml
