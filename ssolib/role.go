@@ -15,6 +15,7 @@ import (
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"github.com/laincloud/sso/ssolib/models/role"
+	"github.com/laincloud/sso/ssolib/models"
 )
 
 type Role struct {
@@ -148,7 +149,6 @@ func (ar AppRoleResource) Post(ctx context.Context, r *http.Request) (int, inter
 		if req.RoleId != 0 && req.RoleName != "" {
 			return http.StatusBadRequest, errors.New("should either set role id or role name, both existed parameters are confused.")
 		}
-
 		// ACL
 		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, req.AppId); ok {
 			if roleType != group.ADMIN {
@@ -196,7 +196,6 @@ func (ar AppRoleResource) Post(ctx context.Context, r *http.Request) (int, inter
 func (ar AppRoleResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireScope(ctx, "write:app", func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
-
 		req := AppRole{}
 		if err := form.ParamBodyJson(r, &req); err != nil {
 			return http.StatusBadRequest, err
@@ -204,7 +203,6 @@ func (ar AppRoleResource) Delete(ctx context.Context, r *http.Request) (int, int
 		if req.AppId == 0 {
 			return http.StatusBadRequest, errors.New("app id is required")
 		}
-
 		// ACL
 		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, req.AppId); ok {
 			if roleType != group.ADMIN {
@@ -242,68 +240,112 @@ type RoleMembers struct {
 	Members []RoleMember `json:"members"`
 }
 
-func (rsr RolesResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "read:role", func(u iuser.User) (int, interface{}) {
-		r.ParseForm()
-		sAppId := r.Form.Get("app_id")
-		if sAppId == "" {
-			return http.StatusBadRequest, "app_id required"
-		}
-		appId, err := strconv.Atoi(sAppId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-		userName := r.Form.Get("username")
-		queryUser := u
-		if userName != "" {
-			ub := getUserBackend(ctx)
-			queryUser, err = ub.GetUserByName(userName)
-			if err == iuser.ErrUserNotFound {
-				return http.StatusNotFound, err
-			} else {
-				panic(err)
+func GetRolesByClient(secret string, mctx *models.Context, appId int) (int, interface{}) {
+	client, err := app.GetApp(mctx, appId)
+	if err != nil || client.GetSecret() != secret {
+		return http.StatusForbidden, "authorization is required"
+	}
+	roles, err := role.GetRolesByAppId(mctx, appId)
+	ret := []RoleMembers{}
+	for _,r := range roles {
+		memList := []RoleMember{}
+		g, _ := group.GetGroup(mctx, r.Id)
+		if g != nil {
+			groupMembers, _ := g.ListMembers(mctx)
+			if groupMembers != nil {
+				for _, gM := range groupMembers {
+					var sType string
+					if gM.Role == group.ADMIN {
+						sType = "admin"
+					} else {
+						sType = "normal"
+					}
+					memList = append(memList, RoleMember{
+						UserName:   gM.GetName(),
+						MemberType: sType,
+					})
+				}
+				tmp := RoleMembers{
+					Role:    r,
+					Type:    "admin",
+					Members: memList,
+				}
+				ret = append(ret, tmp)
 			}
 		}
-		mctx := getModelContext(ctx)
-		roleMembers, err := role.GetAllRoleMembers(mctx, queryUser, appId)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-		ret := []RoleMembers{}
-		for _, rM := range roleMembers {
+	}
+	log.Debug(ret)
+	return http.StatusOK, ret
+}
 
-			memList := []RoleMember{}
-			for _, gM := range rM.Members {
+func (rsr RolesResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+	r.ParseForm()
+	sAppId := r.Form.Get("app_id")
+	if sAppId == "" {
+		return http.StatusBadRequest, "app_id required"
+	}
+	appId, err := strconv.Atoi(sAppId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	all := r.Form.Get("all")
+	mctx := getModelContext(ctx)
+	secret := r.Header.Get("secret")
+	//two ways of authorization. If secret is not given, check user, otherwise check secret.
+	//if using secret, return all roles of the app.
+	if secret == "" {
+		return requireScope(ctx, "read:role", func(u iuser.User) (int, interface{}) {
+			if all == "true" {
+				roles, err := role.GetRolesByAppId(mctx, appId)
+				if err != nil {
+					return http.StatusBadRequest, err
+				}
+				return http.StatusOK, roles
+			}
+			roleMembers, err := role.GetAllRoleMembers(mctx, u, appId)
+			if err != nil {
+				return http.StatusBadRequest, err
+			}
+			ret := []RoleMembers{}
+			for _, rM := range roleMembers {
+
+				memList := []RoleMember{}
+				for _, gM := range rM.Members {
+					var sType string
+					if gM.Role == group.ADMIN {
+						sType = "admin"
+					} else {
+						sType = "normal"
+					}
+					memList = append(memList, RoleMember{
+						UserName:   gM.GetName(),
+						MemberType: sType,
+					})
+				}
+
 				var sType string
-				if gM.Role == group.ADMIN {
+				if rM.Type == group.ADMIN {
 					sType = "admin"
 				} else {
 					sType = "normal"
 				}
-				memList = append(memList, RoleMember{
-					UserName:   gM.GetName(),
-					MemberType: sType,
-				})
+				tmp := RoleMembers{
+					Role:    rM.Role,
+					Type:    sType,
+					Members: memList,
+				}
+				ret = append(ret, tmp)
 			}
+			log.Debug(ret)
+			return http.StatusOK, ret
 
-			var sType string
-			if rM.Type == group.ADMIN {
-				sType = "admin"
-			} else {
-				sType = "normal"
-			}
-			tmp := RoleMembers{
-				Role:    rM.Role,
-				Type:    sType,
-				Members: memList,
-			}
-			ret = append(ret, tmp)
-		}
-		log.Debug(ret)
-		return http.StatusOK, ret
-
-	})
+		})
+	} else {
+		return GetRolesByClient(secret, mctx, appId)
+	}
 }
+
+
 
 type RoleReq struct {
 	AppId  int    `json:"app_id"`
@@ -313,53 +355,47 @@ type RoleReq struct {
 }
 
 func (rsr RolesResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
-		mctx := getModelContext(ctx)
-		roleReq := RoleReq{}
-		if err := form.ParamBodyJson(r, &roleReq); err != nil {
-			return http.StatusBadRequest, err
-		}
-		appId := roleReq.AppId
-		if _, err := app.GetApp(mctx, appId); err != nil {
-			return http.StatusBadRequest, err
-		}
-		if _, err := role.GetRoleByName(mctx, roleReq.Name, appId); err != role.ErrRoleNotFound {
-			return http.StatusConflict, err
-		}
-		ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
-		if ok && mType == group.ADMIN {
-			resp, err := role.CreateRoleWithoutGroup(mctx, roleReq.Name, roleReq.Desc, roleReq.AppId, roleReq.Parent)
-			if err != nil {
-				return http.StatusBadRequest, err
+
+	mctx := getModelContext(ctx)
+	roleReq := RoleReq{}
+	if err := form.ParamBodyJson(r, &roleReq); err != nil {
+		return http.StatusBadRequest, err
+	}
+	appId := roleReq.AppId
+	client, err := app.GetApp(mctx, appId)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	if _, err := role.GetRoleByName(mctx, roleReq.Name, appId); err != role.ErrRoleNotFound {
+		return http.StatusConflict, err
+	}
+	secret := r.Header.Get("secret")
+	//two ways of authorization. If secret is not given, check user, otherwise check secret.
+	if secret == "" {
+		auth, msg:= requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
+			ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
+			if !(ok && mType == group.ADMIN) {
+				return http.StatusForbidden, "only the admin of the root role can create role"
 			}
-			return http.StatusOK, resp
-		} else {
+			return http.StatusOK, "authorized"
+		})
+		if auth != http.StatusOK {
+			return auth, msg
+		}
+	} else {
+		if client.GetSecret() != secret {
 			return http.StatusForbidden, "only the admin of the root role can create role"
 		}
-	})
+	}
+	resp, err := role.CreateRoleWithoutGroup(mctx, roleReq.Name, roleReq.Desc, roleReq.AppId, roleReq.Parent)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	return http.StatusOK, resp
 }
 
 type RoleResource struct {
 	server.BaseResource
-}
-
-func (rr RoleResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "read:role", func(u iuser.User) (int, interface{}) {
-		rId := params(ctx, "id")
-		if rId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(rId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-		mctx := getModelContext(ctx)
-		role, err := role.GetRole(mctx, id)
-		if err != nil {
-			return http.StatusNotFound, err
-		}
-		return http.StatusOK, role
-	})
 }
 
 type RoleModifyReq struct {
@@ -369,78 +405,104 @@ type RoleModifyReq struct {
 }
 
 func (rr RoleResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
-		rId := params(ctx, "id")
-		if rId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(rId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-		mctx := getModelContext(ctx)
-		oldRole, err := role.GetRole(mctx, id)
-		if err != nil {
-			return http.StatusNotFound, err
-		}
 
-		req := RoleModifyReq{}
-		if err := form.ParamBodyJson(r, &req); err != nil {
-			return http.StatusBadRequest, err
-		}
+	rId := params(ctx, "id")
+	if rId == "" {
+		return http.StatusBadRequest, "role id required"
+	}
+	id, err := strconv.Atoi(rId)
+	if err != nil {
+		return http.StatusBadRequest, "role id invalid"
+	}
+	mctx := getModelContext(ctx)
+	oldRole, err := role.GetRole(mctx, id)
+	if err != nil {
+		return http.StatusNotFound, err
+	}
 
-		appId := oldRole.AppId
-		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, appId); ok {
-			if roleType != group.ADMIN {
+	req := RoleModifyReq{}
+	if err := form.ParamBodyJson(r, &req); err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	appId := oldRole.AppId
+	secret := r.Header.Get("secret")
+	//two ways of authorization. If secret is not given, check user, otherwise check secret.
+	if secret == "" {
+		auth, msg := requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
+			if ok, roleType := role.IsUserInAppAdminRole(mctx, u, appId); ok {
+				if roleType != group.ADMIN {
+					return http.StatusForbidden, ErrNotAdmin.Error()
+				}
+			} else {
 				return http.StatusForbidden, ErrNotAdmin.Error()
 			}
-		} else {
-			return http.StatusForbidden, ErrNotAdmin.Error()
+			return http.StatusOK, "authorized"
+		})
+		if auth != http.StatusOK {
+			return auth, msg
 		}
-
-		newRole, err := role.UpdateRole(mctx, oldRole.Id, req.Name, req.Desc, req.Parent)
-		if err != nil {
-			return http.StatusBadRequest, err
-		} else {
-			return http.StatusOK, newRole
+	} else {
+		client, err := app.GetApp(mctx, appId)
+		if err != nil || client.GetSecret() != secret {
+			return http.StatusForbidden, "authorization is required"
 		}
-
-	})
+	}
+	newRole, err := role.UpdateRole(mctx, oldRole.Id, req.Name, req.Desc, req.Parent)
+	if err != nil {
+		return http.StatusBadRequest, err
+	} else {
+		return http.StatusOK, newRole
+	}
 }
 
-func (rr RoleResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
-		rId := params(ctx, "id")
-		if rId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(rId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-		mctx := getModelContext(ctx)
-		oldRole, err := role.GetRole(mctx, id)
-		if err != nil {
-			return http.StatusNotFound, err
-		}
 
-		appId := oldRole.AppId
-		if ok, roleType := role.IsUserInAppAdminRole(mctx, u, appId); ok {
-			if roleType != group.ADMIN {
+func (rr RoleResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
+
+	rId := params(ctx, "id")
+	if rId == "" {
+		return http.StatusBadRequest, "role id required"
+	}
+	id, err := strconv.Atoi(rId)
+	if err != nil {
+		return http.StatusBadRequest, "role id invalid"
+	}
+	mctx := getModelContext(ctx)
+	oldRole, err := role.GetRole(mctx, id)
+	if err != nil {
+		return http.StatusNotFound, err
+	}
+
+	appId := oldRole.AppId
+	secret := r.Header.Get("secret")
+	//two ways of authorization. If secret is not given, check user, otherwise check secret.
+	if secret == "" {
+		auth, msg := requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
+			if ok, roleType := role.IsUserInAppAdminRole(mctx, u, appId); ok {
+				if roleType != group.ADMIN {
+					return http.StatusForbidden, ErrNotAdmin.Error()
+				}
+			} else {
 				return http.StatusForbidden, ErrNotAdmin.Error()
 			}
-		} else {
-			return http.StatusForbidden, ErrNotAdmin.Error()
+			return http.StatusOK, "authorized"
+		})
+		if auth != http.StatusOK {
+			return auth, msg
 		}
-
-		err = role.DeleteRole(mctx, id)
-		if err != nil {
-			return http.StatusBadRequest, err
-		} else {
-			return http.StatusNoContent, "role deleted"
+	} else {
+		client, err := app.GetApp(mctx, appId)
+		if err != nil || client.GetSecret() != secret {
+			return http.StatusForbidden, "authorization is required"
 		}
+	}
+	err = role.DeleteRole(mctx, id)
+	if err != nil {
+		return http.StatusBadRequest, err
+	} else {
+		return http.StatusNoContent, "role deleted"
+	}
 
-	})
 }
 
 type RoleMemberResource struct {
@@ -450,147 +512,173 @@ type RoleMemberResource struct {
 type RoleMemberType struct {
 	MemberType string `json:"type"`
 }
-
+//add  member to role
 func (rmr RoleMemberResource) Put(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:role", func(currentUser iuser.User) (int, interface{}) {
-		mctx := getModelContext(ctx)
 
-		roleId := params(ctx, "id")
-		if roleId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(roleId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-		username := params(ctx, "username")
-		if username == "" {
-			return http.StatusBadRequest, "no username given"
-		}
-		memberType := RoleMemberType{}
-		if err := form.ParamBodyJson(r, &memberType); err != nil {
-			return http.StatusBadRequest, err
-		}
-		var mrole group.MemberRole
-		if memberType.MemberType == "admin" {
-			mrole = group.ADMIN
-		} else if memberType.MemberType == "normal" || memberType.MemberType == "" {
-			mrole = group.NORMAL
-		} else {
-			return http.StatusBadRequest, "unknown role"
-		}
+	mctx := getModelContext(ctx)
 
-		_, err = role.GetRole(mctx, id)
-		if err != nil {
-			if err == role.ErrRoleNotFound {
-				return http.StatusBadRequest, "role not found"
-			}
-			panic(err)
-		}
+	roleId := params(ctx, "id")
+	if roleId == "" {
+		return http.StatusBadRequest, "role id required"
+	}
+	id, err := strconv.Atoi(roleId)
+	if err != nil {
+		return http.StatusBadRequest, "role id invalid"
+	}
+	username := params(ctx, "username")
+	if username == "" {
+		return http.StatusBadRequest, "no username given"
+	}
+	memberType := RoleMemberType{}
+	if err := form.ParamBodyJson(r, &memberType); err != nil {
+		return http.StatusBadRequest, err
+	}
+	var mrole group.MemberRole
+	if memberType.MemberType == "admin" {
+		mrole = group.ADMIN
+	} else if memberType.MemberType == "normal" || memberType.MemberType == "" {
+		mrole = group.NORMAL
+	} else {
+		return http.StatusBadRequest, "unknown role"
+	}
 
-		g, err := group.GetGroup(mctx, id)
-		switch {
-		case err == group.ErrGroupNotFound:
-			return http.StatusNotFound, "no such group"
-		case err != nil:
-			panic(err)
+	Role, err := role.GetRole(mctx, id)
+	if err != nil {
+		if err == role.ErrRoleNotFound {
+			return http.StatusBadRequest, "role not found"
 		}
+		panic(err)
+	}
 
-		ub := getUserBackend(ctx)
-		u, uerr := ub.GetUserByName(username)
+	g, err := group.GetGroup(mctx, id)
+	switch {
+	case err == group.ErrGroupNotFound:
+		return http.StatusNotFound, "no such group"
+	case err != nil:
+		panic(err)
+	}
 
-		if uerr != nil {
-			return http.StatusNotFound, "no such user"
-		}
+	ub := getUserBackend(ctx)
+	u, uerr := ub.GetUserByName(username)
 
-		ok, currentUserRole, err := g.GetMember(mctx, currentUser)
-		if err != nil {
-			panic(err)
-		}
-		if !(ok && currentUserRole == group.ADMIN) {
-			return http.StatusForbidden, "Not group admin"
-		}
-
-		directMembers, err := g.ListMembers(mctx)
-		if err != nil {
-			panic(err)
-		}
-		isAlreadyMember := false
-		for _, m := range directMembers {
-			if m.GetId() == u.GetId() {
-				isAlreadyMember = true
-				if m.Role != mrole {
-					if err := g.UpdateMember(mctx, u, mrole); err != nil {
-						panic(err)
-					}
-				}
-				break
-			}
-		}
-		if !isAlreadyMember {
-			if err := g.AddMember(mctx, u, mrole); err != nil {
+	if uerr != nil {
+		return http.StatusNotFound, "no such user"
+	}
+	appId := Role.AppId
+	secret := r.Header.Get("secret")
+	//two ways of authorization. If secret is not given, check user, otherwise check secret.
+	if secret == "" {
+		auth, msg := requireScope(ctx, "write:role", func(currentUser iuser.User) (int, interface{}) {
+			ok, currentUserRole, err := g.GetMember(mctx, currentUser)
+			if err != nil {
 				panic(err)
 			}
-
+			if !(ok && currentUserRole == group.ADMIN) {
+				return http.StatusForbidden, "Not group admin"
+			}
+			return http.StatusOK, "authorized"
+		})
+		if auth != http.StatusOK {
+			return auth, msg
 		}
-		return http.StatusOK, "member added"
-	})
+	} else {
+		client, err := app.GetApp(mctx, appId)
+		if err != nil || client.GetSecret() != secret {
+			return http.StatusForbidden, "authorization is required"
+		}
+	}
+	directMembers, err := g.ListMembers(mctx)
+	if err != nil {
+		panic(err)
+	}
+	isAlreadyMember := false
+	for _, m := range directMembers {
+		if m.GetId() == u.GetId() {
+			isAlreadyMember = true
+			if m.Role != mrole {
+				if err := g.UpdateMember(mctx, u, mrole); err != nil {
+					panic(err)
+				}
+			}
+			break
+		}
+	}
+	if !isAlreadyMember {
+		if err := g.AddMember(mctx, u, mrole); err != nil {
+			panic(err)
+		}
+
+	}
+	return http.StatusOK, "member added"
 }
 
 func (rmr RoleMemberResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:role", func(currentUser iuser.User) (int, interface{}) {
-		mctx := getModelContext(ctx)
 
-		roleId := params(ctx, "id")
-		if roleId == "" {
-			return http.StatusBadRequest, "role id required"
-		}
-		id, err := strconv.Atoi(roleId)
-		if err != nil {
-			return http.StatusBadRequest, "role id invalid"
-		}
-		username := params(ctx, "username")
-		if username == "" {
-			return http.StatusBadRequest, "no username given"
-		}
 
-		_, err = role.GetRole(mctx, id)
-		if err != nil {
-			if err == role.ErrRoleNotFound {
-				return http.StatusBadRequest, "role not found"
+	mctx := getModelContext(ctx)
+
+	roleId := params(ctx, "id")
+	if roleId == "" {
+		return http.StatusBadRequest, "role id required"
+	}
+	id, err := strconv.Atoi(roleId)
+	if err != nil {
+		return http.StatusBadRequest, "role id invalid"
+	}
+	username := params(ctx, "username")
+	if username == "" {
+		return http.StatusBadRequest, "no username given"
+	}
+
+	Role, err := role.GetRole(mctx, id)
+	if err != nil {
+		if err == role.ErrRoleNotFound {
+			return http.StatusBadRequest, "role not found"
+		}
+		panic(err)
+	}
+
+	g, err := group.GetGroup(mctx, id)
+	switch {
+	case err == group.ErrGroupNotFound:
+		return http.StatusNotFound, "no such group"
+	case err != nil:
+		panic(err)
+	}
+
+	ub := getUserBackend(ctx)
+	u, uerr := ub.GetUserByName(username)
+
+	if uerr != nil {
+		return http.StatusNotFound, "no such user"
+	}
+	appId := Role.AppId
+	secret := r.Header.Get("secret")
+	//two ways of authorization. If secret is not given, check user, otherwise check secret.
+	if secret == "" {
+		auth, msg := requireScope(ctx, "write:role", func(currentUser iuser.User) (int, interface{}) {
+			ok, currentUserRole, err := g.GetMember(mctx, currentUser)
+			if err != nil {
+				panic(err)
 			}
-			panic(err)
+			if !(ok && currentUserRole == group.ADMIN) {
+				return http.StatusForbidden, "Not group admin"
+			}
+			return http.StatusOK, "authorized"
+		})
+		if auth != http.StatusOK {
+			return auth, msg
 		}
-
-		g, err := group.GetGroup(mctx, id)
-		switch {
-		case err == group.ErrGroupNotFound:
-			return http.StatusNotFound, "no such group"
-		case err != nil:
-			panic(err)
+	} else {
+		client, err := app.GetApp(mctx, appId)
+		if err != nil || client.GetSecret() != secret {
+			return http.StatusForbidden, "authorization is required"
 		}
-
-		ub := getUserBackend(ctx)
-		u, uerr := ub.GetUserByName(username)
-
-		if uerr != nil {
-			return http.StatusNotFound, "no such user"
-		}
-
-		ok, currentUserRole, err := g.GetMember(mctx, currentUser)
-		if err != nil {
-			panic(err)
-		}
-		if !(ok && currentUserRole == group.ADMIN) {
-			return http.StatusForbidden, "Not group admin"
-		}
-		if err := g.RemoveMember(mctx, u); err != nil {
-			panic(err)
-		}
-
-		return http.StatusNoContent, "member deleted"
-	})
-
+	}
+	if err := g.RemoveMember(mctx, u); err != nil {
+		panic(err)
+	}
+	return http.StatusNoContent, "member deleted"
 }
 
 type RoleMember struct {
@@ -609,102 +697,114 @@ func (s *Server) RoleMembers(ctx context.Context, w http.ResponseWriter, r *http
 		if r.Method != "POST" {
 			return http.StatusBadRequest, "only support POST for this url"
 		}
-		s, iface := requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
-			mctx := getModelContext(ctx)
+		mctx := getModelContext(ctx)
 
-			ub := getUserBackend(ctx)
-			req := RoleMembersReq{}
-			if err := form.ParamBodyJson(r, &req); err != nil {
-				return http.StatusBadRequest, err.Error()
+		ub := getUserBackend(ctx)
+		req := RoleMembersReq{}
+		if err := form.ParamBodyJson(r, &req); err != nil {
+			return http.StatusBadRequest, err.Error()
+		}
+		Role, err := role.GetRole(mctx, req.RoleId)
+		if err != nil {
+			if err == role.ErrRoleNotFound {
+				return http.StatusBadRequest, "role not found"
 			}
-			_, err := role.GetRole(mctx, req.RoleId)
-			if err != nil {
-				if err == role.ErrRoleNotFound {
-					return http.StatusBadRequest, "role not found"
+			panic(err)
+		}
+		for _, m := range req.MemberList {
+			if m.MemberType != "admin" && m.MemberType != "" && m.MemberType != "normal" {
+				return http.StatusBadRequest, "unknown member type: " + m.MemberType
+			}
+			username := m.UserName
+			_, uerr := ub.GetUserByName(username)
+
+			if uerr != nil {
+				return http.StatusNotFound, "no such user: " + username
+			}
+
+		}
+		g, err := group.GetGroup(mctx, req.RoleId)
+		switch {
+		case err == group.ErrGroupNotFound:
+			return http.StatusNotFound, "no such group"
+		case err != nil:
+			panic(err)
+		}
+		appId := Role.AppId
+		secret := r.Header.Get("secret")
+		//two ways of authorization. If secret is not given, check user, otherwise check secret.
+		if secret == "" {
+			auth, _ := requireScope(ctx, "write:role", func(u iuser.User) (int, interface{}) {
+				ok, currentUserRole, err := g.GetMember(mctx, u)
+				if err != nil {
+					panic(err)
 				}
-				panic(err)
+				if !(ok && currentUserRole == group.ADMIN) {
+					return http.StatusForbidden, "Not group admin"
+				}
+				return http.StatusOK, "authorized"
+			})
+			if auth != http.StatusOK {
+				return auth, "authorization is required"
 			}
+		} else {
+			client, err := app.GetApp(mctx, appId)
+			if err != nil || client.GetSecret() != secret {
+				return http.StatusForbidden, "only the admin member of the root role can change members"
+			}
+		}
+		directMembers, err := g.ListMembers(mctx)
+		if err != nil {
+			panic(err)
+		}
+
+		if req.Action == "add" {
 			for _, m := range req.MemberList {
-				if m.MemberType != "admin" && m.MemberType != "" && m.MemberType != "normal" {
-					return http.StatusBadRequest, "unknown member type: " + m.MemberType
+
+				var mrole group.MemberRole
+				if m.MemberType == "admin" {
+					mrole = group.ADMIN
+				} else if m.MemberType == "normal" || m.MemberType == "" {
+					mrole = group.NORMAL
+				} else {
+					panic("check failed")
 				}
-				username := m.UserName
-				_, uerr := ub.GetUserByName(username)
 
-				if uerr != nil {
-					return http.StatusNotFound, "no such user: " + username
-				}
+				uAdding, _ := ub.GetUserByName(m.UserName)
 
-			}
-			g, err := group.GetGroup(mctx, req.RoleId)
-			switch {
-			case err == group.ErrGroupNotFound:
-				return http.StatusNotFound, "no such group"
-			case err != nil:
-				panic(err)
-			}
-			ok, currentUserRole, err := g.GetMember(mctx, u)
-			if err != nil {
-				panic(err)
-			}
-			if !(ok && currentUserRole == group.ADMIN) {
-				return http.StatusForbidden, "Not group admin"
-			}
-			directMembers, err := g.ListMembers(mctx)
-			if err != nil {
-				panic(err)
-			}
+				isAlreadyMember := false
+				for _, oldM := range directMembers {
 
-			if req.Action == "add" {
-				for _, m := range req.MemberList {
-
-					var mrole group.MemberRole
-					if m.MemberType == "admin" {
-						mrole = group.ADMIN
-					} else if m.MemberType == "normal" || m.MemberType == "" {
-						mrole = group.NORMAL
-					} else {
-						panic("check failed")
-					}
-
-					uAdding, _ := ub.GetUserByName(m.UserName)
-
-					isAlreadyMember := false
-					for _, oldM := range directMembers {
-
-						if oldM.GetId() == uAdding.GetId() {
-							isAlreadyMember = true
-							if oldM.Role != mrole {
-								if err := g.UpdateMember(mctx, uAdding, mrole); err != nil {
-									panic(err)
-								}
+					if oldM.GetId() == uAdding.GetId() {
+						isAlreadyMember = true
+						if oldM.Role != mrole {
+							if err := g.UpdateMember(mctx, uAdding, mrole); err != nil {
+								panic(err)
 							}
-							break
 						}
-					}
-					if !isAlreadyMember {
-						if err := g.AddMember(mctx, uAdding, mrole); err != nil {
-							panic(err)
-						}
+						break
 					}
 				}
-				return http.StatusOK, "members added"
-
-			} else if req.Action == "delete" {
-				for _, m := range req.MemberList {
-					uDel, _ := ub.GetUserByName(m.UserName)
-					if err := g.RemoveMember(mctx, uDel); err != nil {
+				if !isAlreadyMember {
+					if err := g.AddMember(mctx, uAdding, mrole); err != nil {
 						panic(err)
 					}
 				}
-				return http.StatusOK, "members deleted"
-			} else {
-				return http.StatusBadRequest, "action should be either add or delete"
 			}
-		})
-		return s, iface.(string)
-	}()
+			return http.StatusOK, "members added"
 
+		} else if req.Action == "delete" {
+			for _, m := range req.MemberList {
+				uDel, _ := ub.GetUserByName(m.UserName)
+				if err := g.RemoveMember(mctx, uDel); err != nil {
+					panic(err)
+				}
+			}
+			return http.StatusOK, "members deleted"
+		} else {
+			return http.StatusBadRequest, "action should be either add or delete"
+		}
+	}()
 	var data []byte
 	var err error
 	if status != http.StatusBadRequest && status != http.StatusConflict {
@@ -721,6 +821,5 @@ func (s *Server) RoleMembers(ctx context.Context, w http.ResponseWriter, r *http
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(status)
 	w.Write(data)
-
 	return ctx
 }

@@ -187,9 +187,16 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 	if username == "" {
 		return http.StatusBadRequest, "username not given"
 	}
-
+	if err := r.ParseForm(); err != nil {
+		log.Debug(err)
+		return http.StatusBadRequest, err
+	}
+	DatabaseOnly := r.Form.Get("database")
+	database := false
+	if DatabaseOnly == "true" {
+		database = true
+	}
 	mctx := getModelContext(ctx)
-
 	ub := getUserBackend(ctx)
 	u, err := ub.GetUserByName(username)
 	if err != nil {
@@ -198,12 +205,19 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 		}
 		panic(err)
 	}
-
 	gs, err := group.GetGroupsOfUser(mctx, u)
 	if err != nil {
 		panic(err)
 	}
-
+	if database {
+		ggs := []group.Group{}
+		for _, g := range gs {
+			if g.GroupType == 0 {
+				ggs = append(ggs,g)
+			}
+		}
+		gs = ggs
+	}
 	groups := make([]string, len(gs))
 	for i, g := range gs {
 		groups[i] = g.Name
