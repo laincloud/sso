@@ -203,13 +203,11 @@ groups|用户所在的组|是|array|||
 注：查询用于权限控制的app列表，该类app有相应的root role
 
 **接口地址及请求方式**  
-`GET /api/app_roles?all=true`
+`GET /api/app_roles`
 
 **请求数据格式**
 字段名 |变量名 | 是否必填 | 类型 | 示例 | 描述 |
 ---| --- | --- | --- | --- | --- |
-all|是否查看所有apps|否|string|true||
-note:如果all=true，返回所有的appid和appfullname，不返回roles
 
 **请求参数**
 
@@ -357,6 +355,40 @@ Updated|Updated|是|Updated||
 
 
 ```
+
+
+### 2.4 查询pp基本信息
+**接口地址及请求方式**
+`GET /api/app_info `
+
+**请求数据格式**
+
+
+
+**请求参数**
+
+
+**返回结果**
+
+字段名 |变量名 | 是否必填 | 类型 | 示例 | 描述 |
+---| --- | --- | --- | --- | --- |
+Id|app的id|是|integer||
+FullName|app的名称|是|string||
+
+**返回结果示例**
+
+```
+[
+  {
+    "id": 48,
+    "fullname": "pallas-transfer",
+  }
+]
+
+
+```
+
+
 
 ## 3. 资源管理  
 ### 3.1 查询资源
@@ -1178,3 +1210,4 @@ role| 申请项目职位| 是 | string | admin |  |
   }
 ]
 ```
+
