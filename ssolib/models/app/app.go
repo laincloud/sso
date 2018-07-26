@@ -52,6 +52,7 @@ type App struct {
 	Updated      string
 }
 
+
 func (a *App) SecretString() string {
 	return a.Secret
 }
@@ -123,8 +124,13 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	return app, nil
 }
 
-func ListApps(ctx *models.Context) ([]App, error) {
-	apps := []App{}
+type AppInfo struct {
+	Id       int     `json:"id"`
+	FullName string  `json:"fullname"`
+}
+
+func ListApps(ctx *models.Context) ([]AppInfo, error) {
+	apps := []AppInfo{}
 	err := ctx.DB.Select(&apps, "SELECT * FROM app")
 	return apps, err
 }
@@ -151,6 +157,17 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	}
 
 	return &app, nil
+}
+
+func GetAppIdBYName(ctx *models.Context, name string) ([]int, error) {
+	appIds := []int{}
+	err := ctx.DB.Select(&appIds, "SELECT id FROM app WHERE fullname=?", name)
+	if err == sql.ErrNoRows {
+		return nil, ErrAppNotFound
+	} else if err != nil {
+		return nil, err
+	}
+	return appIds, nil
 }
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {

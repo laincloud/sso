@@ -114,3 +114,18 @@ type App struct {
 	RedirectUri string `json:"redirect_uri"`
 	AdminGroup  *Group `json:"admin_group"`
 }
+
+type AppInformation struct {
+	server.BaseResource
+}
+
+
+func (ai AppInformation) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+	mctx := getModelContext(ctx)
+	Apps, err := app.ListApps(mctx)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	return http.StatusOK, Apps
+}
+
