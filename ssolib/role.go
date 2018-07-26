@@ -132,7 +132,7 @@ func (ar AppRoleResource) Post(ctx context.Context, r *http.Request) (int, inter
 	// use some existed role as a root role, in this case the role id is different from the admin group id
 	return requireScope(ctx, "write:app", func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
-
+		log.Debug("start creating root role")
 		req := AppRole{}
 		if err := form.ParamBodyJson(r, &req); err != nil {
 			return http.StatusBadRequest, err

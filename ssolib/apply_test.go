@@ -13,15 +13,42 @@ import (
 )
 
 func TestApply_Post(t *testing.T) {
+	//test applying for group
 	th := NewTestHelper(t)
 	createTestUserAndGroup(th)
 	th.login("testuser")
-	code ,resp := callPostApplication(th)
-	assert.Equal(t, code, http.StatusOK)
-	a, ok := resp.([]application.Application)
-	assert.True(t, ok)
+	code1 ,resp1 := callPostApplicationOfGroup(th)
+	assert.Equal(t, code1, http.StatusOK)
+	a, ok1 := resp1.([]application.Application)
+	assert.True(t, ok1)
 	assert.Equal(t, "testuser@creditease.cn", a[0].ApplicantEmail)
+	//test applying for role
+	th.logout()
+	th.loginWithScope("testadmin", "write:app")
+	createApp(th)
+	createRole(th)
+	th.logout()
+	th.login("testuser")
+	code2 ,resp2 := callPostApplicationOfRole(th)
+	assert.Equal(t, code2, http.StatusOK)
+	b, ok2 := resp2.([]application.Application)
+	assert.True(t, ok2)
+	assert.Equal(t, application.TargetContent{"role1","normal", "app1"}, *b[0].TargetContent)
+
 }
+
+func createApp(th *TestHelper) (int, interface{}){
+	r, _ := http.NewRequest("POST", "http://sso.example.com/api/apps",
+		strings.NewReader(`{"fullname": "app1", "redirect_uri": "https://example.com"}`))
+	return AppResource{}.Post(th.Ctx, r)
+}
+
+func createRole(th *TestHelper) (int, interface{}){
+	r, _ := http.NewRequest("POST", "http://sso.example.com/api/app_roles",
+		strings.NewReader(`{"app_id": 1, "role_name": "role1"}`))
+	return AppRoleResource{}.Post(th.Ctx, r)
+}
+
 
 func createTestUserAndGroup(th *TestHelper) iuser.User {
 	mctx := getModelContext(th.Ctx)
@@ -37,6 +64,7 @@ func createTestUserAndGroup(th *TestHelper) iuser.User {
 	callPostGroupsWithGroupName(th, "lain")
 	g3 ,_:= group.GetGroupByName(mctx, "lain")
 	g3.AddMember(mctx, admin, 1)
+	th.logout()
 	return u
 }
 
@@ -58,9 +86,15 @@ func createTestUserWithEmail(th *TestHelper, username string) iuser.User {
 }
 
 
-func callPostApplication(th *TestHelper) (int, interface{}) {
+func callPostApplicationOfGroup(th *TestHelper) (int, interface{}) {
 	r, _ := http.NewRequest("POST", "http://sso.example.com/api/applications",
 		strings.NewReader(`{"target_type": "group", "reason":"testing", "target": [{"name": "group1","role":"normal"}, {"name": "group2","role":"normal"}]}`))
+	return Apply{}.Post(th.Ctx, r)
+}
+
+func callPostApplicationOfRole(th *TestHelper) (int, interface{}) {
+	r, _ := http.NewRequest("POST", "http://sso.example.com/api/applications",
+		strings.NewReader(`{"target_type": "role", "reason":"testing", "target": [{"name": "role1","role":"normal","app_name":"app1"}]}`))
 	return Apply{}.Post(th.Ctx, r)
 }
 
@@ -68,7 +102,7 @@ func TestApply_Get(t *testing.T) {
 	th := NewTestHelper(t)
 	createTestUserAndGroup(th)
 	th.login("testuser")
-	callPostApplication(th)
+	callPostApplicationOfGroup(th)
 	code1, resp1 := callGetApplication(th)
 	assert.Equal(t, http.StatusOK, code1)
 	a, ok := resp1.([]application.Application)
@@ -133,26 +167,43 @@ func callGetApplicationByStatus(th *TestHelper) (int, interface{}) {
 func TestApplicationHandle_Post(t *testing.T) {
 	th := NewTestHelper(t)
 	mctx := getModelContext(th.Ctx)
+	//test handling application of group
 	user := createTestUserAndGroup(th)
-	callPostApplication(th)
+	th.login("testuser")
+	callPostApplicationOfGroup(th)
 	th.logout()
 	th.login("testadmin")
-	code, resp := callPostApplicationHandle(th, strconv.Itoa(1),"approve")
-	assert.Equal(t, http.StatusOK, code)
-	a, ok := resp.(*application.Application)
-	assert.True(t, ok)
+	code1, resp1 := callPostApplicationHandle(th, strconv.Itoa(1),"approve")
+	assert.Equal(t, http.StatusOK, code1)
+	a, ok1 := resp1.(*application.Application)
+	assert.True(t, ok1)
 	assert.Equal(t, "approved", a.Status)
 	gs ,_ := group.GetGroupRolesOfUser(mctx, user)
 	assert.Equal(t, 1, len(gs))
 	th.logout()
 	th.login("testuser")
-	code, resp = callPostApplicationHandle(th, strconv.Itoa(2),"recall")
-	assert.Equal(t, http.StatusNoContent, code)
-	code, resp = callGetApplication(th)
-	assert.Equal(t, http.StatusOK, code)
-	b, ok := resp.([]application.Application)
-	assert.True(t, ok)
-	assert.Equal(t, 1, len(b))
+	code2, _ := callPostApplicationHandle(th, strconv.Itoa(2),"recall")
+	assert.Equal(t, http.StatusNoContent, code2)
+	code3, resp3 := callGetApplication(th)
+	assert.Equal(t, http.StatusOK, code3)
+	c, ok3 := resp3.([]application.Application)
+	assert.True(t, ok3)
+	assert.Equal(t, 1, len(c))
+	//test handling application of role
+	th.logout()
+	th.loginWithScope("testadmin", "write:app")
+	createApp(th)
+	createRole(th)
+	th.logout()
+	th.login("testuser")
+	callPostApplicationOfRole(th)
+	th.logout()
+	th.login("testadmin")
+	code4, _ := callPostApplicationHandle(th, strconv.Itoa(3),"approve")
+	assert.Equal(t, http.StatusOK, code4)
+	u ,_ := mctx.Back.GetUserByName("testuser")
+	g, _ := group.GetGroupRolesOfUser(mctx, u)
+	assert.Equal(t, 2, len(g))
 
 }
 
@@ -164,3 +215,5 @@ func callPostApplicationHandle (th *TestHelper, id string, action string) (int, 
 	defer aMock.restore()
 	return ApplicationHandle{}.Post(th.Ctx, r)
 }
+
+

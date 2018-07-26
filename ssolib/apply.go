@@ -13,6 +13,9 @@ import (
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/mijia/sweb/form"
 	"github.com/laincloud/sso/ssolib/models/application"
+	"github.com/laincloud/sso/ssolib/models/role"
+	"github.com/laincloud/sso/ssolib/models/app"
+
 )
 
 
@@ -21,39 +24,52 @@ type Apply struct {
 	server.BaseResource
 }
 
-func applyEnterGroup(mctx *models.Context, id int, target application.TargetContent, user iuser.User, reason string)(*application.Application, error) {
-	res, err := application.CreateApplication(mctx, user.GetProfile().GetEmail(), "group", &target, reason)
+func CreateApplication(mctx *models.Context, id int, target application.TargetContent, user iuser.User, reason string, targetType string)(*application.Application, error) {
+	res, err := application.CreateApplication(mctx, user.GetProfile().GetEmail(), targetType, &target, reason)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := mctx.DB.Query("SELECT user_id FROM user_group WHERE group_id=? AND role=?", id, 1)
-	if err != nil {
-		return nil, err
-	}
-	log.Debug(rows)
-	back := mctx.Back
-	for rows.Next() {
-		var userId int
-		if err = rows.Scan(&userId); err == nil {
-			log.Debug(userId)
-			user, err := back.GetUser(userId)
-			if err == nil {
-				adminEmail := user.GetProfile().GetEmail()
-				log.Debug(adminEmail)
-				g, err := group.GetGroup(mctx, id)
-				if err != nil {
-					log.Debug(err)
+	if targetType == "group" || targetType == "role" {
+		rows, err := mctx.DB.Query("SELECT user_id FROM user_group WHERE group_id=? AND role=?", id, 1)
+		if err != nil {
+			return nil, err
+		}
+		log.Debug(rows)
+		back := mctx.Back
+		for rows.Next() {
+			var userId int
+			if err = rows.Scan(&userId); err == nil {
+				log.Debug(userId)
+				user, err := back.GetUser(userId)
+				if err == nil {
+					adminEmail := user.GetProfile().GetEmail()
+					log.Debug(adminEmail)
+					var name string
+					if targetType == "group" {
+						g, err := group.GetGroup(mctx, id)
+						if err != nil {
+							log.Debug(err)
+						}
+						name = g.Name
+					} else {
+						role, err :=  role.GetRole(mctx, id)
+						if err != nil {
+							log.Debug(err)
+						}
+						name = role.Name
+					}
+					content := user.GetName() + "applies join" + name + "\n" + "please log in to handle it"
+					err1 := SendTo("new application", content, adminEmail)
+					if err1 != nil {
+						log.Debug(err1)
+					}
+					application.CreatePendingApplication(mctx, res.Id, adminEmail)
 				}
-				content := user.GetName() + "applies join" + g.Name + "\n" + "please log in to handle it"
-				err1 := SendTo("new application", content, adminEmail)
-				if err1 != nil{
-					log.Debug(err1)
-				}
-				application.CreatePendingApplication(mctx, res.Id, adminEmail)
 			}
 		}
+		return res, nil
 	}
-	return res, nil
+	return nil, nil
 }
 
 
@@ -99,13 +115,13 @@ func CheckIfInGroup(group_ids []int, id int) (bool) {
 	return Exist
 }
 
-func CheckIfQualified(ctx *models.Context, group_ids []int, id int, target application.TargetContent, u iuser.User) (bool, error) {
+func CheckIfQualified(ctx *models.Context, group_ids []int, id int, Role string, u iuser.User) (bool, error) {
 	if CheckIfInGroup(group_ids, id) {
 		role, err := GetTypeOfUser(ctx, u.GetId(), id)
 		if err != nil {
 			return false, err
 		}
-		if role == 0 && target.Role == "admin" {
+		if role == 0 && Role == "admin" {
 			return true, nil
 		}
 		return false, nil
@@ -179,7 +195,6 @@ func (ay Apply) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 					return http.StatusBadRequest, err
 				}
 				Applications = applications
-				log.Debug(applications)
 			} else if islain && applicantEmail != currentEmail {
 				applications, err := application.GetApplications(mctx, applicantEmail, Status, from, to)
 				if err != nil {
@@ -210,6 +225,107 @@ func (ay Apply) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	})
 }
 
+func CheckIfQualifiedAndCreateApplicationForGroup(mctx *models.Context, req Application, u iuser.User) (int, interface{}) {
+	groupIds, err := getDirectGroupsOfUser(mctx, u)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	if len(req.Target) >= 1 {
+		for i := 0; i < len(req.Target); i++ {
+			_, err := group.GetGroupByName(mctx, req.Target[i].Name)
+			if err != nil {
+				if err == group.ErrGroupNotFound {
+					return http.StatusBadRequest, err
+				}
+
+			}
+		}
+		var applications []application.Application
+		for i := 0; i < len(req.Target); i++ {
+			g, err := group.GetGroupByName(mctx, req.Target[i].Name)
+			if err != nil {
+				return http.StatusBadRequest, err
+			}
+			qualified, err := CheckIfQualified(mctx, groupIds, g.Id, req.Target[i].Role, u)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			if !qualified {
+				temp := application.Application{
+					TargetType:    req.TargetType,
+					TargetContent: &req.Target[i],
+					Status:        "existed",
+				}
+				applications = append(applications, temp)
+			} else {
+				resp, err := CreateApplication(mctx, g.Id, req.Target[i], u, req.Reason, req.TargetType)
+				if err == nil {
+					if resp != nil {
+						applications = append(applications, *resp)
+					}
+				} else {
+					return http.StatusBadRequest, applications
+				}
+			}
+		}
+		return http.StatusOK, applications
+	}
+	return http.StatusBadRequest, "please enter vaild target"
+}
+
+func CheckIfQualifiedAndCreateApplicationForRole(mctx *models.Context, req Application, u iuser.User) (int, interface{}) {
+	groupIds, err := getDirectGroupsOfUser(mctx, u)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	if len(req.Target) >= 1 {
+		Roles := []role.Role{}
+		for i := 0; i < len(req.Target); i++ {
+			appName := req.Target[i].AppName
+			appId, err := app.GetAppIdBYName(mctx, appName)
+			if err != nil || len(appId) != 1 {
+				return http.StatusBadRequest, "invaild app_name"
+			}
+			Role, err := role.GetRoleByName(mctx, req.Target[i].Name, appId[0])
+			if err != nil {
+				return http.StatusBadRequest, "invaild role_name"
+			}
+			_, err = group.GetGroup(mctx, Role.Id)
+			if err != nil {
+				if err == group.ErrGroupNotFound {
+					return http.StatusBadRequest, err
+				}
+			}
+			Roles = append(Roles, *Role)
+		}
+		var applications []application.Application
+		for i := 0; i < len(req.Target); i++ {
+			qualified, err := CheckIfQualified(mctx, groupIds, Roles[i].Id, req.Target[i].Role, u)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			if !qualified {
+				temp := application.Application{
+					TargetType:    req.TargetType,
+					TargetContent: &req.Target[i],
+					Status:        "existed",
+				}
+				applications = append(applications, temp)
+			} else {
+				resp, err := CreateApplication(mctx, Roles[i].Id, req.Target[i], u, req.Reason, req.TargetType)
+				if err == nil {
+					if resp != nil {
+						applications = append(applications, *resp)
+					}
+				} else {
+					return http.StatusBadRequest, applications
+				}
+			}
+		}
+		return http.StatusOK, applications
+	}
+	return http.StatusBadRequest, "please enter vaild target"
+}
 
 
 func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
@@ -220,68 +336,11 @@ func (ay Apply) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 		if err := form.ParamBodyJson(r, &req); err != nil {
 			return http.StatusBadRequest, err
 		}
-		log.Debug(u)
+		if req.TargetType == "role" {
+			return CheckIfQualifiedAndCreateApplicationForRole(mctx, req, u)
+		}
 		if req.TargetType == "group" {
-			groupIds, err := getDirectGroupsOfUser(mctx, u)
-			if err != nil {
-				return http.StatusBadRequest, err
-			}
-			if len(req.Target) == 1 {
-				group, err := group.GetGroupByName(mctx, req.Target[0].Name)
-				if err != nil {
-					return http.StatusBadRequest, err
-				}
-				id := group.Id
-				qualified, err := CheckIfQualified(mctx, groupIds, id, req.Target[0], u)
-				if err != nil {
-					log.Debug(err)
-					return http.StatusInternalServerError , err
-				}
-				if qualified {
-					resp, err := applyEnterGroup(mctx, id, req.Target[0], u, req.Reason)
-					if err != nil {
-						return http.StatusBadRequest, err
-					}
-					return http.StatusOK, resp
-				}
-				return http.StatusBadRequest, "already in the group!"
-			} else if len(req.Target) > 1 {
-				for i := 0; i < len(req.Target); i++ {
-					_, err := group.GetGroupByName(mctx, req.Target[i].Name)
-					if err != nil {
-						if err == group.ErrGroupNotFound {
-							return http.StatusBadRequest, err
-						}
-
-					}
-				}
-				var applications []application.Application
-				for i := 0; i < len(req.Target); i++ {
-					g, err := group.GetGroupByName(mctx, req.Target[i].Name)
-					qualified, err := CheckIfQualified(mctx, groupIds, g.Id, req.Target[i], u)
-					if err != nil {
-						return http.StatusInternalServerError, err
-					}
-					if !qualified {
-						temp := application.Application{
-							TargetType:    req.TargetType,
-							TargetContent: &req.Target[i],
-							Status:        "existed",
-						}
-						applications = append(applications, temp)
-					} else {
-						resp, err := applyEnterGroup(mctx, g.Id, req.Target[i], u, req.Reason)
-						if err == nil {
-							if resp != nil {
-								applications = append(applications, *resp)
-							}
-						} else {
-							return http.StatusBadRequest, applications
-						}
-					}
-				}
-				return http.StatusOK, applications
-			}
+			return CheckIfQualifiedAndCreateApplicationForGroup(mctx, req, u)
 		}
 		return http.StatusBadRequest, "no such type"
 	})
@@ -325,6 +384,7 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 		action := r.Form.Get("action")
 		log.Debug(action)
 		aId, err := strconv.Atoi(aid)
+		log.Debug(aid)
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
@@ -334,7 +394,7 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 			return http.StatusBadRequest, err
 		}
 		Ttype := application1.TargetType
-		if Ttype == "group" {
+		if Ttype == "group" || Ttype == "role"{
 			if action == "recall" {
 				if application1.ApplicantEmail != u.GetProfile().GetEmail() {
 					return http.StatusBadRequest, "only applicant can delete application"
@@ -345,15 +405,32 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 				}
 				return http.StatusNoContent, "application deleted"
 			}
-			name := application1.TargetContent.Name
-			group, err := group.GetGroupByName(mctx, name)
-			log.Debug(group)
-			if err != nil {
-				return http.StatusBadRequest, err
+			var g *group.Group
+			if Ttype == "group" {
+				name := application1.TargetContent.Name
+				g, err = group.GetGroupByName(mctx, name)
+				if err != nil {
+					return http.StatusBadRequest, err
+				}
+			} else {
+				AppName := application1.TargetContent.AppName
+				RoleName := application1.TargetContent.Name
+				appId, err := app.GetAppIdBYName(mctx, AppName)
+				if err != nil || len(appId) != 1 {
+					return http.StatusBadRequest, "invaild app_name"
+				}
+				Role, err := role.GetRoleByName(mctx, RoleName, appId[0])
+				if err != nil {
+					return http.StatusBadRequest, "invaild role_name"
+				}
+				g, err = group.GetGroup(mctx, Role.Id)
+				if err != nil {
+					return http.StatusBadRequest, "group doesn't exist"
+				}
 			}
 			R := []int{}
 			err = mctx.DB.Select(&R, "SELECT role FROM user_group WHERE user_id =? AND group_id=?",
-				u.GetId(), group.Id)
+				u.GetId(), g.Id)
 			if err != nil {
 				log.Debug(err)
 				return http.StatusBadRequest, err
@@ -363,17 +440,19 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 			}
 			back := mctx.Back
 			user, err := back.GetUserByFeature(application1.ApplicantEmail)
-			log.Debug(user)
+			if err != nil {
+				return http.StatusBadRequest, err
+			}
 			if action == "approve" {
 				if application1.TargetContent.Role == "admin" {
 					log.Debug("adding member")
-					err := group.AddMember(mctx, user, 1)
+					err := g.AddMember(mctx, user, 1)
 					if err != nil {
 						return http.StatusBadRequest, err
 					}
 				} else {
 					log.Debug("adding member")
-					err := group.AddMember(mctx, user, 0)
+					err := g.AddMember(mctx, user, 0)
 					if err != nil {
 						return http.StatusBadRequest, err
 					}

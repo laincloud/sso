@@ -13,9 +13,9 @@ var admin2Email = "testadmin2@creditease.cn"
 
 func TestCreateApplication(t *testing.T) {
 	th := NewTestHelper(t)
-	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal"},"testreason")
+	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal", ""},"testreason")
 	assert.Nil(t, err)
-	assert.Equal(t, &TargetContent{groupName, "normal"}, a.TargetContent )
+	assert.Equal(t, &TargetContent{groupName, "normal", ""}, a.TargetContent )
 }
 
 func TestCreatePendingApplication(t *testing.T) {
@@ -27,9 +27,9 @@ func TestCreatePendingApplication(t *testing.T) {
 
 func TestUpdateApplication(t *testing.T) {
 	th := NewTestHelper(t)
-	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal"},"testreason")
+	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal", ""},"testreason")
 	assert.Nil(t, err)
-	assert.Equal(t, &TargetContent{groupName, "normal"}, a.TargetContent )
+	assert.Equal(t, &TargetContent{groupName, "normal", ""}, a.TargetContent )
 	b, err := UpdateApplication(th.Ctx, a.Id, "approved", adminEmail)
 	assert.Nil(t, err)
 	assert.Equal(t, "approved", b.Status)
@@ -38,9 +38,9 @@ func TestUpdateApplication(t *testing.T) {
 
 func TestFinishApplication(t *testing.T) {
 	th := NewTestHelper(t)
-	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal"}, "testreason")
+	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal", ""}, "testreason")
 	assert.Nil(t, err)
-	assert.Equal(t, &TargetContent{groupName, "normal"}, a.TargetContent)
+	assert.Equal(t, &TargetContent{groupName, "normal", ""}, a.TargetContent)
 	b, err := CreatePendingApplication(th.Ctx, a.Id, adminEmail)
 	assert.Nil(t, err)
 	assert.Equal(t, adminEmail, b.OperatorEmail)
@@ -57,9 +57,9 @@ func TestFinishApplication(t *testing.T) {
 
 func TestRecallApplication(t *testing.T) {
 	th := NewTestHelper(t)
-	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal"},"testreason")
+	a, err := CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal", ""},"testreason")
 	assert.Nil(t, err)
-	assert.Equal(t, &TargetContent{groupName, "normal"}, a.TargetContent )
+	assert.Equal(t, &TargetContent{groupName, "normal", ""}, a.TargetContent )
 	b, err := CreatePendingApplication(th.Ctx, a.Id, adminEmail)
 	assert.Nil(t, err)
 	assert.Equal(t, adminEmail, b.OperatorEmail )
@@ -77,11 +77,11 @@ func TestGetApplications(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		groupName := "group" + string(i)
 		time.Sleep(1 * time.Second)
-		CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal"},"testreason")
+		CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal", ""},"testreason")
 	}
 	as, err := GetApplications(th.Ctx, applicantEmail, "initialled", 2, 7 )
 	assert.Nil(t, err)
-	assert.Equal(t, 5, len(as))
+	assert.Equal(t, 6, len(as))
 	assert.Equal(t,8, as[0].Id)
 	as, err = GetApplications(th.Ctx, applicantEmail, "approved", 2, 7 )
 	assert.Nil(t, err)
@@ -93,9 +93,9 @@ func TestGetAllApplications(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		groupName := "group" + string(i)
 		time.Sleep(1 * time.Second)
-		CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal"},"testreason")
+		CreateApplication(th.Ctx, applicantEmail, "group", &TargetContent{groupName, "normal", ""},"testreason")
 	}
 	as, err := GetAllApplications(th.Ctx, "", 2, 8)
 	assert.Nil(t, err)
-	assert.Equal(t, 6, len(as))
+	assert.Equal(t, 7, len(as))
 }

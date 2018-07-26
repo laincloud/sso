@@ -62,12 +62,41 @@ func (a *Application) MarshalJson() ([]byte, error) {
 type TargetContent struct {
 	Name string `json:"name"`
 	Role string `json:"role"`
+	AppName string `json:"app_name"`
 }
+
+type TargetStrOfGroup struct {
+	GroupName string
+	Role string
+}
+
+type TargetStrOfRole struct {
+	AppName string
+	RoleName string
+	Role    string
+}
+
 
 
 func (a *Application) ParseTarget() {
 	if a.TargetContent == nil && a.TargetStr !="" {
-		json.Unmarshal([]byte(a.TargetStr), &(a.TargetContent))
+		if a.TargetType == "role" {
+			var temp TargetStrOfRole
+			json.Unmarshal([]byte(a.TargetStr), &(temp))
+			a.TargetContent= &TargetContent{
+				temp.RoleName,
+				temp.Role,
+				temp.AppName,
+			}
+		} else if a.TargetType == "group" {
+			var temp TargetStrOfGroup
+			json.Unmarshal([]byte(a.TargetStr), &(temp))
+			a.TargetContent= &TargetContent{
+				temp.GroupName,
+				temp.Role,
+				"",
+			}
+		}
 	}
 	a.TargetStr = ""
 }
@@ -82,6 +111,22 @@ func (a *Application) ParseOprEmail(emails []string) {
 	}
 }
 
+
+func TransferTargetStr (target TargetContent, targetType string) interface{}{
+	if targetType == "group" {
+		return TargetStrOfGroup {
+			GroupName: target.Name,
+			Role: target.Role,
+		}
+	} else if targetType == "role" {
+		return TargetStrOfRole {
+			AppName: target.AppName,
+			RoleName:    target.Name,
+			Role:    target.Role,
+		}
+	}
+	return nil
+}
 
 type PendingApplication struct {
 	Id            int    `json:"id"`
@@ -146,7 +191,8 @@ func GetPendingApplicationByApplicationId(ctx *models.Context, id int) ([]Pendin
 func CreateApplication (ctx *models.Context, applicantEmail string, targetType string, target *TargetContent, Reason string) (*Application, error) {
 	log.Debug("CreateApplication")
 	tx := ctx.DB.MustBegin()
-	t, err:= json.Marshal(target)
+	str := TransferTargetStr(*target, targetType)
+	t, err:= json.Marshal(str)
 	if err != nil {
 		return nil, err
 	}
