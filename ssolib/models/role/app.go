@@ -111,6 +111,7 @@ func DeleteApp(ctx *models.Context, id int) ( error) {
 	if err4 != nil {
 		return err4
 	}
+	log.Debug(roles)
 	for _,r := range roles {
 		g, err := group.GetGroup(ctx, r.Id)
 		if err != nil {

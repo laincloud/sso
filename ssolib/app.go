@@ -13,6 +13,7 @@ import (
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"strconv"
 	"github.com/laincloud/sso/ssolib/models/role"
+	"github.com/laincloud/sso/Godeps/_workspace/src/github.com/mijia/sweb/log"
 )
 
 type AppsResource struct {
@@ -279,6 +280,7 @@ func (ar AppResource) Delete(ctx context.Context, r *http.Request) (int, interfa
 		if !qualified {
 			return http.StatusForbidden, "only admins of the app can modify it"
 		}
+		log.Debug("deleteing app")
 		err = role.DeleteApp(mctx, id)
 		if err != nil {
 			return http.StatusBadRequest, err
