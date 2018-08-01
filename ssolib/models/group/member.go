@@ -149,6 +149,15 @@ func (g *Group) ListMembers(ctx *models.Context) ([]Member, error) {
 	return nil, nil
 }
 
+func (g *Group) GetGroupMembersID(ctx *models.Context) ([]int, error) {
+	member := []int{}
+	err := ctx.DB.Select(&member, "SELECT user_id FROM user_group WHERE group_id=?", g.Id)
+	if err != nil {
+		return nil, err
+	}
+	return member, err
+}
+
 // Return (true, role, nil) if u is member of g, otherwise return (false, 0, nil).
 // error will be non-nil if anything unexpected happens.
 // Must considering recursive if valid
