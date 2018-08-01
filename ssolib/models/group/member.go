@@ -10,6 +10,7 @@ import (
 
 	"github.com/laincloud/sso/ssolib/models"
 	"github.com/laincloud/sso/ssolib/models/iuser"
+	"time"
 )
 
 type MemberRole int8
@@ -450,6 +451,8 @@ func getGroupRolesRecursivelyOfUser(ctx *models.Context, user iuser.User, adminO
 func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly bool) (map[int]MemberRole, error) {
 	l := list.New()
 	ret := make(map[int]MemberRole)
+	var totalTime time.Duration
+	totalDatabase := 0
 	if adminOnly {
 		groupRoles, err := GetGroupRolesDirectlyOfUser(ctx, user)
 		if err != nil {
@@ -462,7 +465,13 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly 
 			}
 		}
 	} else {
+		t1 := time.Now()
 		groups, err := getGroupsDirectlyOfUser(ctx, user)
+		t2 := time.Now()
+		totalDatabase++
+		totalTime = t2.Sub(t1)
+		log.Debugf("the %d th time using database for:",totalDatabase)
+		log.Debug(t2.Sub(t1))
 		if err != nil {
 			return nil, err
 		}
@@ -475,7 +484,13 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly 
 		iter := l.Front()
 		v := iter.Value.(int)
 		l.Remove(iter)
+		t1 := time.Now()
 		fathers, err := ListGroupFathersById(ctx, v)
+		t2 := time.Now()
+		totalDatabase++
+		totalTime += t2.Sub(t1)
+		log.Debugf("the %d th time using database for:",totalDatabase)
+		log.Debug(t2.Sub(t1))
 		if err != nil {
 			panic(err)
 		}
@@ -484,7 +499,13 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly 
 				if _, ok := ret[g.Id]; ok {
 					continue
 				}
+				t1 := time.Now()
 				role, err := GetGroupMemberRole(ctx, g.Id, v)
+				t2 := time.Now()
+				totalDatabase++
+				totalTime += t2.Sub(t1)
+				log.Debugf("the %d th time using database for:",totalDatabase)
+				log.Debug(t2.Sub(t1))
 				if err != nil {
 					panic(err)
 				}
@@ -501,5 +522,7 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly 
 			}
 		}
 	}
+	log.Debugf("totally using database for %d times", totalDatabase)
+	log.Debug(totalTime)
 	return ret, nil
 }

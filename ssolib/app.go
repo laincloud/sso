@@ -111,6 +111,50 @@ type AppResource struct {
 	server.BaseResource
 }
 
+func (ar AppResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+	return requireScope(ctx, "read:app", func(u iuser.User) (int, interface{}) {
+		mctx := getModelContext(ctx)
+		aId := params(ctx, "id")
+		if aId == "" {
+			return http.StatusBadRequest, "app id not given"
+		}
+		id, err := strconv.Atoi(aId)
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
+		queryApp, err := app.GetApp(mctx, id)
+		if err != nil {
+			if err == app.ErrAppNotFound {
+				return http.StatusBadRequest, "app doesn't exist"
+			}
+			return http.StatusBadRequest, err
+		}
+		adminGroup, err := group.GetGroup(mctx, queryApp.AdminGroupId)
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
+		admins, err := adminGroup.GetGroupMembersID(mctx)
+		uid := u.GetId()
+		qualified := false
+		for _,admin := range admins {
+			if admin == uid {
+				qualified = true
+				break
+			}
+		}
+		if !qualified {
+			return http.StatusForbidden, "only admins of the app can read it"
+		}
+		resp := &App{
+			Id:          queryApp.Id,
+			FullName:    queryApp.FullName,
+			Secret:      queryApp.Secret,
+			RedirectUri: queryApp.RedirectUri,
+		}
+		return http.StatusOK, resp
+	})
+}
+
 
 func (ar AppResource) Put(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireScope(ctx, "write:app", func(u iuser.User) (int, interface{}) {
@@ -251,11 +295,11 @@ type App struct {
 	AdminGroup  *Group `json:"admin_group"`
 }
 
-/*type AppInformation struct {
+type AppInformation struct {
 	server.BaseResource
 }
 
-
+/*
 func (ai AppInformation) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
@@ -265,4 +309,5 @@ func (ai AppInformation) Get(ctx context.Context, r *http.Request) (int, interfa
 		}
 		return http.StatusOK, Apps
 	})
-}*/
+}
+*/
