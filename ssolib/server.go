@@ -161,7 +161,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	s.AddRestfulResource("/api/users/:username", "UserResource", UserResource{})
 	s.AddRestfulResource("/api/me", "MeResource", MeResource{})
 	s.AddRestfulResource("/api/apps", "AppsResource", AppsResource{})
-	s.AddRestfulResource("/api/apps/:id", "AppResource", AppResource{})
+	s.AddRestfulResource("/api/app/:id", "AppResource", AppResource{})
 	s.AddRestfulResource("/api/groups", "GroupsResource", GroupsResource{})
 	s.AddRestfulResource("/api/groups/:groupname", "GroupResource", GroupResource{})
 	s.AddRestfulResource("/api/groups/:groupname/members/:username",
