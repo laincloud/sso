@@ -12,6 +12,7 @@ import (
 
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/iuser"
+	"time"
 )
 
 var (
@@ -93,7 +94,16 @@ func (bg *BackendGroup) Validate() error {
 // 登录的用户得到自己所在的 groups 列表
 func (gr GroupsResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireScope(ctx, "read:group", func(u iuser.User) (int, interface{}) {
+		r.ParseForm()
 		mctx := getModelContext(ctx)
+		all := r.Form.Get("all")
+		if all == "true" {
+			g, err := group.GetAllDateBaseGroup(mctx)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			return http.StatusOK, g
+		}
 		groups, err := group.GetGroupRolesOfUser(mctx, u)
 		if err != nil {
 			panic(err)
@@ -307,6 +317,7 @@ type MemberResource struct {
 }
 
 func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+	t1 := time.Now()
 	groupname := params(ctx, "groupname")
 	if groupname == "" {
 		return http.StatusBadRequest, "no groupname given"
@@ -317,8 +328,9 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 	}
 
 	mctx := getModelContext(ctx)
-
 	g, err := group.GetGroupByName(mctx, groupname)
+	t2 := time.Now()
+	log.Debug(t2.Sub(t1))
 	switch {
 	case err == group.ErrGroupNotFound:
 		return http.StatusNotFound, "no such group"
@@ -328,6 +340,8 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 
 	ub := getUserBackend(ctx)
 	u, uerr := ub.GetUserByName(username)
+	t3 := time.Now()
+	log.Debug(t3.Sub(t2))
 	if g.GroupType == iuser.SSOLIBGROUP {
 
 		if uerr != nil {
@@ -342,6 +356,8 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 			if addingUserRole == group.ADMIN {
 				retRole = "admin"
 			}
+			t4 := time.Now()
+			log.Debug(t4.Sub(t3))
 			return http.StatusOK, struct {
 				Role string `json:"role"`
 			}{

@@ -105,6 +105,7 @@ func ListGroups(ctx *models.Context, ids ...int) ([]Group, error) {
 
 	groups := []Group{}
 	err := ctx.DB.Select(&groups, query, args...)
+	log.Debug(err)
 	return groups, err
 }
 
@@ -184,3 +185,16 @@ func deleteGroup(ctx *models.Context, group *Group) error {
 
 	return nil
 }
+
+func GetAllDateBaseGroup(ctx *models.Context) (*Group, error) {
+	group := Group{}
+	err := ctx.DB.Get(&group, "SELECT * FROM `group` WHERE backend=?",0)
+	log.Debug(err)
+	if err == sql.ErrNoRows {
+		return nil, ErrGroupNotFound
+	} else if err != nil {
+		return nil, err
+	}
+	return &group, nil
+}
+

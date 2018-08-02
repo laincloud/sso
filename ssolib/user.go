@@ -11,6 +11,7 @@ import (
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"strings"
+	"time"
 )
 
 type UserWithGroups struct {
@@ -183,13 +184,21 @@ type UserResource struct {
 }
 
 func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+	t1 := time.Now()
 	username := server.Params(ctx, "username")
 	if username == "" {
 		return http.StatusBadRequest, "username not given"
 	}
-
+	if err := r.ParseForm(); err != nil {
+		log.Debug(err)
+		return http.StatusBadRequest, err
+	}
+	DatabaseOnly := r.Form.Get("database")
+	database := false
+	if DatabaseOnly == "true" {
+		database = true
+	}
 	mctx := getModelContext(ctx)
-
 	ub := getUserBackend(ctx)
 	u, err := ub.GetUserByName(username)
 	if err != nil {
@@ -198,12 +207,23 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 		}
 		panic(err)
 	}
-
+	t2 := time.Now()
+	log.Debug(t2.Sub(t1))
 	gs, err := group.GetGroupsOfUser(mctx, u)
+	t3 := time.Now()
+	log.Debug(t3.Sub(t2))
 	if err != nil {
 		panic(err)
 	}
-
+	if database {
+		ggs := []group.Group{}
+		for _, g := range gs {
+			if g.GroupType == 0 {
+				ggs = append(ggs,g)
+			}
+		}
+		gs = ggs
+	}
 	groups := make([]string, len(gs))
 	for i, g := range gs {
 		groups[i] = g.Name
@@ -233,6 +253,8 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 		User:   profile,
 		Groups: groups,
 	}
+	t4 := time.Now()
+	log.Debug(t4.Sub(t3))
 	return http.StatusOK, ret
 }
 
@@ -305,8 +327,13 @@ func GetUserWithGroups(ctx context.Context, u iuser.User) *UserWithGroups {
 }
 
 func (mr MeResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+	t1 := time.Now()
 	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
+		t2 := time.Now()
+		log.Debug(t2.Sub(t1))
 		ret := GetUserWithGroups(ctx, u)
+		t3 := time.Now()
+		log.Debug(t3.Sub(t2))
 		return http.StatusOK, ret
 	})
 }
