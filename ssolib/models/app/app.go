@@ -52,6 +52,7 @@ type App struct {
 	Updated      string
 }
 
+
 func (a *App) SecretString() string {
 	return a.Secret
 }
@@ -73,6 +74,21 @@ func (a *App) GetRedirectUri() string {
 func (a *App) GetUserData() interface{} {
 	return nil
 }
+
+func UpdateApp(ctx *models.Context, app *App) (*App, error) {
+	tx := ctx.DB.MustBegin()
+	_, err := tx.Exec("UPDATE app SET fullname=?, redirect_uri=? WHERE id=?", app.FullName, app.RedirectUri, app.Id)
+	if err != nil {
+		log.Debug(err)
+		return nil, err
+	}
+	if err1 := tx.Commit(); err1 != nil {
+		log.Debug(err1)
+		return nil, err1
+	}
+	return GetApp(ctx, app.Id)
+}
+
 
 func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	secret := app.Secret
@@ -123,11 +139,6 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	return app, nil
 }
 
-func ListApps(ctx *models.Context) ([]App, error) {
-	apps := []App{}
-	err := ctx.DB.Select(&apps, "SELECT * FROM app")
-	return apps, err
-}
 
 func ListAppsByAdminGroupIds(ctx *models.Context, groupIds []int) ([]App, error) {
 	query, args, err := sqlx.In("SELECT * FROM app WHERE admin_group_id IN(?)", groupIds)
@@ -149,8 +160,18 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	} else if err != nil {
 		return nil, err
 	}
-
 	return &app, nil
+}
+
+func GetAppIdBYName(ctx *models.Context, name string) ([]int, error) {
+	appIds := []int{}
+	err := ctx.DB.Select(&appIds, "SELECT id FROM app WHERE fullname=?", name)
+	if err == sql.ErrNoRows {
+		return nil, ErrAppNotFound
+	} else if err != nil {
+		return nil, err
+	}
+	return appIds, nil
 }
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {
@@ -166,3 +187,4 @@ func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 		return true, nil
 	}
 }
+
