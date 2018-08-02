@@ -13,11 +13,11 @@ import (
 	"github.com/laincloud/sso/ssolib/models/iuser"
 )
 
-type AppResource struct {
+type AppsResource struct {
 	server.BaseResource
 }
 
-func (ar AppResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+func (ar AppsResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireScope(ctx, "read:app", func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
 
@@ -58,7 +58,7 @@ func (ar AppResource) Get(ctx context.Context, r *http.Request) (int, interface{
 	})
 }
 
-func (ar AppResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
+func (ar AppsResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	return requireScope(ctx, "write:app", func(u iuser.User) (int, interface{}) {
 		var appSpec struct {
 			FullName    string `json:"fullname"`
@@ -67,7 +67,6 @@ func (ar AppResource) Post(ctx context.Context, r *http.Request) (int, interface
 		if err := form.ParamBodyJson(r, &appSpec); err != nil {
 			return http.StatusBadRequest, ""
 		}
-
 		if err := ValidateFullName(appSpec.FullName); err != nil {
 			return http.StatusBadRequest, err
 		}
