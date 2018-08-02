@@ -42,6 +42,7 @@ API接口返回数据统一使用JSON格式，返回格式为3种情况
     [2.4 查询app基本信息](#2-4-)
     [2.5 更新APP](#2-5-)
     [2.6 删除App](#2-6-)
+    [2.7 查询App](#2-7-)
 
 3. 资源管理  
     [3.1 查询资源](#3-1-)   
@@ -395,7 +396,7 @@ FullName|app的名称|是|string||
 **接口地址及请求方式**
 
 ```
-PUT /api/apps/:id
+PUT /api/app/:id
 
 body ：
 {
@@ -441,7 +442,7 @@ redirect_uri|重定向uri|是|string|
 **接口地址及请求方式**
 
 ```
-DELETE /api/apps/:id
+DELETE /api/app/:id
 
 ```
 
@@ -466,13 +467,49 @@ id|app的id|是|string|39||
 `http code 204 no content`
 
 ```
+### 2.7 查询App
+**接口地址及请求方式**
+
+```
+GET /api/app/:id
+
+```
+
+**请求数据格式**
+`GET application/json`
+
+
+**请求参数**
+
+字段名 |变量名 | 是否必填 | 类型 | 示例 | 描述 |
+---| --- | --- | --- | --- | --- |
+Id|app的id|是|integer||
+FullName|app的名称|是|string||
+Secret|app的Secret|是|string||
+RedirectUri|重定向uri|是|string||
+**返回结果**
+
+字段名 |变量名 | 是否必填 | 类型 | 示例 | 描述 |
+---| --- | --- | --- | --- | --- |
+
+**返回结果示例**
+
+```
+{
+    "Id": 39,
+    "FullName": "test",
+    "Secret": "",
+    "RedirectUri": "http://test/222",
+}
+
+```
 
 ## 3. 资源管理  
 ### 3.1 查询资源
 **接口地址及请求方式**  
 `GET /api/resources?app_id=123&type=raw`
 
-注：6.1 查询App全部角色资源关联 `GET /api/resources?app_id=123&type=byrole`
+note：查询App全部角色资源关联 `GET /api/resources?app_id=123&type=byrole`
 
 **请求数据格式**  
 `GET urlencode`
