@@ -11,6 +11,7 @@ import (
 	"github.com/laincloud/sso/ssolib/models"
 	"github.com/laincloud/sso/ssolib/models/iuser"
 	"time"
+	"github.com/pkg/errors"
 )
 
 type MemberRole int8
@@ -525,4 +526,17 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly 
 	log.Debugf("totally using database for %d times", totalDatabase)
 	log.Debug(totalTime)
 	return ret, nil
+}
+
+func GetRoleOfUser(mctx *models.Context, uId int, gId int) (MemberRole, error){
+	Roles := []MemberRole{}
+	err := mctx.DB.Select(&Roles, "SELECT role FROM user_group WHERE user_id =? AND group_id=?",
+		uId, gId)
+	if err != nil {
+		return NORMAL, err
+	}
+	if len(Roles) != 1 {
+		return NORMAL, errors.New("wrong number of roles")
+	}
+	return Roles[0], nil
 }

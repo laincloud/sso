@@ -173,7 +173,7 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	return &app, nil
 }
 
-func GetAppIdBYName(ctx *models.Context, name string) ([]int, error) {
+func GetAppIdsByName(ctx *models.Context, name string) ([]int, error) {
 	appIds := []int{}
 	err := ctx.DB.Select(&appIds, "SELECT id FROM app WHERE fullname=?", name)
 	if err == sql.ErrNoRows {

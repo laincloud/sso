@@ -16,6 +16,7 @@ import (
 	"github.com/laincloud/sso/ssolib/models/role"
 	"github.com/laincloud/sso/ssolib/models/app"
 
+	"github.com/pkg/errors"
 )
 
 
@@ -299,7 +300,7 @@ func CheckIfQualifiedAndCreateApplicationForRole(mctx *models.Context, req Appli
 		Roles := []role.Role{}
 		for i := 0; i < len(req.Target); i++ {
 			appName := req.Target[i].AppName
-			appId, err := app.GetAppIdBYName(mctx, appName)
+			appId, err := app.GetAppIdsByName(mctx, appName)
 			if err != nil || len(appId) != 1 {
 				return http.StatusBadRequest, "invaild app_name"
 			}
@@ -392,9 +393,36 @@ type ApplicationHandle struct {
 	server.BaseResource
 }
 
+func getTargetGroup(mctx *models.Context, targetType string, currentApp *application.Application) (*group.Group, error) {
+	var targetGroup *group.Group
+	var err error
+	if targetType == "group" {
+		name := currentApp.TargetContent.Name
+		targetGroup, err = group.GetGroupByName(mctx, name)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		AppName := currentApp.TargetContent.AppName
+		RoleName := currentApp.TargetContent.Name
+		appIds, err := app.GetAppIdsByName(mctx, AppName)
+		if err != nil || len(appIds) != 1 {
+			return nil, errors.New("invaild app_name")
+		}
+		Role, err := role.GetRoleByName(mctx, RoleName, appIds[0])
+		if err != nil {
+			return nil, errors.New("invaild role_name")
+		}
+		targetGroup, err = group.GetGroup(mctx, Role.Id)
+		if err != nil {
+			return nil, errors.New("group doesn't exist")
+		}
+	}
+	return targetGroup, nil
+}
 
 func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
+	return requireLogin(ctx, func(currentUser iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
 		aid := params(ctx, "application_id")
 		r.ParseForm()
@@ -405,15 +433,19 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		application1, err := application.GetApplication(mctx, aId)
+		currentApp, err := application.GetApplication(mctx, aId)
 		if err != nil {
 			log.Debug(err)
 			return http.StatusBadRequest, err
 		}
-		Ttype := application1.TargetType
-		if Ttype == "group" || Ttype == "role"{
-			if action == "recall" {
-				if application1.ApplicantEmail != u.GetProfile().GetEmail() {
+		targetType := currentApp.TargetType
+		if !(targetType == "group" || targetType == "role") {
+			return http.StatusBadRequest, "no such type"
+		}
+		switch action {
+		case "recall":
+			{
+				if currentApp.ApplicantEmail != currentUser.GetProfile().GetEmail() {
 					return http.StatusBadRequest, "only applicant can delete application"
 				}
 				err = application.RecallApplication(mctx, aId)
@@ -422,76 +454,56 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 				}
 				return http.StatusNoContent, "application deleted"
 			}
-			var g *group.Group
-			if Ttype == "group" {
-				name := application1.TargetContent.Name
-				g, err = group.GetGroupByName(mctx, name)
+		case "approve", "reject":
+			{
+				targetGroup, err := getTargetGroup(mctx, targetType, currentApp)
 				if err != nil {
 					return http.StatusBadRequest, err
 				}
-			} else {
-				AppName := application1.TargetContent.AppName
-				RoleName := application1.TargetContent.Name
-				appId, err := app.GetAppIdBYName(mctx, AppName)
-				if err != nil || len(appId) != 1 {
-					return http.StatusBadRequest, "invaild app_name"
-				}
-				Role, err := role.GetRoleByName(mctx, RoleName, appId[0])
+				commitRole, err := group.GetRoleOfUser(mctx, currentUser.GetId(), targetGroup.Id)
 				if err != nil {
-					return http.StatusBadRequest, "invaild role_name"
+					log.Debug(err)
+					return http.StatusBadRequest, err
 				}
-				g, err = group.GetGroup(mctx, Role.Id)
+				if commitRole != group.ADMIN {
+					return http.StatusBadRequest, "not qualified for the operation"
+				}
+				applicant, err := mctx.Back.GetUserByEmail(currentApp.ApplicantEmail)
 				if err != nil {
-					return http.StatusBadRequest, "group doesn't exist"
+					return http.StatusBadRequest, err
 				}
-			}
-			R := []int{}
-			err = mctx.DB.Select(&R, "SELECT role FROM user_group WHERE user_id =? AND group_id=?",
-				u.GetId(), g.Id)
-			if err != nil {
-				log.Debug(err)
-				return http.StatusBadRequest, err
-			}
-			if R[0] != 1 {
-				return http.StatusBadRequest, "not qualified for the operation"
-			}
-			back := mctx.Back
-			user, err := back.GetUserByFeature(application1.ApplicantEmail)
-			if err != nil {
-				return http.StatusBadRequest, err
-			}
-			if action == "approve" {
-				if application1.TargetContent.Role == "admin" {
+				if action == "approve" {
+					var role group.MemberRole
+					if currentApp.TargetContent.Role == "admin" {
+						role = group.ADMIN
+					} else {
+						role = group.NORMAL
+					}
 					log.Debug("adding member")
-					err := g.AddMember(mctx, user, 1)
+					err := targetGroup.AddMember(mctx, applicant, role)
 					if err != nil {
 						return http.StatusBadRequest, err
 					}
-				} else {
-					log.Debug("adding member")
-					err := g.AddMember(mctx, user, 0)
+					log.Debug("finishing handing application")
+					resp, err := application.FinishApplication(mctx, currentApp.Id, "approved", currentUser.GetProfile().GetEmail())
 					if err != nil {
 						return http.StatusBadRequest, err
 					}
+					return http.StatusOK, resp
+				} else if action == "reject" {
+					log.Debug("finishing handing application")
+					resp, err := application.FinishApplication(mctx, currentApp.Id, "rejected", currentUser.GetProfile().GetEmail())
+					if err != nil {
+						return http.StatusBadRequest, err
+					}
+					return http.StatusOK, resp
 				}
-				log.Debug("finishing handing application")
-				resp, err1 := application.FinishApplication(mctx, application1.Id, "approved", u.GetProfile().GetEmail())
-				if err1 != nil {
-					return http.StatusBadRequest, err1
-				}
-				return http.StatusOK, resp
-			} else if action == "reject" {
-				log.Debug("finishing handing application")
-				resp, err1 := application.FinishApplication(mctx, application1.Id, "rejected", u.GetProfile().GetEmail())
-				if err1 != nil {
-					return http.StatusBadRequest, err1
-				}
-				return http.StatusOK, resp
-			} else {
-				return http.StatusBadRequest, "no such operation"
+
 			}
+		default:
+			return http.StatusBadRequest, "no such operation"
 		}
-		return http.StatusBadRequest, "no such type"
+		return http.StatusInternalServerError, "dummy message"
 	})
 }
 
