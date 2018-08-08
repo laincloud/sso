@@ -3,8 +3,6 @@ package role
 import (
 	"container/list"
 	"database/sql"
-	"errors"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/mijia/sweb/log"
 
@@ -25,9 +23,6 @@ CREATE TABLE IF NOT EXISTS resource (
 	PRIMARY KEY (id)
 ) DEFAULT CHARSET=latin1`
 
-var (
-	ErrResourceNotFound = errors.New("Resource not found")
-)
 
 type Resource struct {
 	Id          int    `json:"id"`
@@ -70,7 +65,7 @@ func GetResource(ctx *models.Context, id int) (*Resource, error) {
 	resource := Resource{}
 	err := ctx.DB.Get(&resource, "SELECT * FROM resource WHERE id=?", id)
 	if err == sql.ErrNoRows {
-		return nil, ErrResourceNotFound
+		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
