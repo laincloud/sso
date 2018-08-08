@@ -555,3 +555,27 @@ func GetGroupMemberRole(ctx *models.Context, fatherId int, sonId int) (role Memb
 		fatherId, sonId).Scan(&role)
 	return
 }
+
+func ListFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
+	var fathers []int
+	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?)", fathers)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return fathers, nil
+}
+
+func ListAdminFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
+	var fathers []int
+	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?) AND role=?", fathers, 1)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return fathers, nil
+}
