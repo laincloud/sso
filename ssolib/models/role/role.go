@@ -151,6 +151,9 @@ func GetRolesByGroupIds(ctx *models.Context, groupIds []int) ([]Role, error) {
 func GetRolesByAppId(ctx *models.Context, appId int) ([]Role, error) {
 	roles := []Role{}
 	err := ctx.DB.Select(&roles, "SELECT * FROM role WHERE app_id=?", appId)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	return roles, err
 }
 

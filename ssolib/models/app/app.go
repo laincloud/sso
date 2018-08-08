@@ -52,6 +52,7 @@ type App struct {
 	Updated      string
 }
 
+
 func (a *App) SecretString() string {
 	return a.Secret
 }
@@ -123,12 +124,6 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	return app, nil
 }
 
-func ListApps(ctx *models.Context) ([]App, error) {
-	apps := []App{}
-	err := ctx.DB.Select(&apps, "SELECT * FROM app")
-	return apps, err
-}
-
 func ListAppsByAdminGroupIds(ctx *models.Context, groupIds []int) ([]App, error) {
 	query, args, err := sqlx.In("SELECT * FROM app WHERE admin_group_id IN(?)", groupIds)
 	if err != nil {
@@ -145,12 +140,22 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	err := ctx.DB.Get(&app, "SELECT * FROM app WHERE id=?", id)
 	log.Debugf("GetAPP: %d finish", id)
 	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return &app, nil
+}
+
+func GetAppIdBYName(ctx *models.Context, name string) ([]int, error) {
+	appIds := []int{}
+	err := ctx.DB.Select(&appIds, "SELECT id FROM app WHERE fullname=?", name)
+	if err == sql.ErrNoRows {
 		return nil, ErrAppNotFound
 	} else if err != nil {
 		return nil, err
 	}
-
-	return &app, nil
+	return appIds, nil
 }
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {
@@ -166,3 +171,4 @@ func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 		return true, nil
 	}
 }
+
