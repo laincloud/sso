@@ -173,16 +173,6 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	return &app, nil
 }
 
-func GetAppIdsByName(ctx *models.Context, name string) ([]int, error) {
-	appIds := []int{}
-	err := ctx.DB.Select(&appIds, "SELECT id FROM app WHERE fullname=?", name)
-	if err == sql.ErrNoRows {
-		return nil, ErrAppNotFound
-	} else if err != nil {
-		return nil, err
-	}
-	return appIds, nil
-}
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 	log.Debug("AppNameExist: %s", appName)

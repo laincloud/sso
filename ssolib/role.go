@@ -366,7 +366,7 @@ func (rsr RolesResource) Post(ctx context.Context, r *http.Request) (int, interf
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-	if _, err := role.GetRoleByName(mctx, roleReq.Name, appId); err != role.ErrRoleNotFound {
+	if _, err := role.GetRoleIdByName(mctx, roleReq.Name, appId); err != role.ErrRoleNotFound {
 		return http.StatusConflict, err
 	}
 	secret := r.Header.Get("secret")

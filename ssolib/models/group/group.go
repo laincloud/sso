@@ -80,14 +80,12 @@ func CreateGroup(ctx *models.Context, group *Group) (*Group, error) {
 
 func GetGroupByName(ctx *models.Context, name string) (*Group, error) {
 	group := Group{}
-	err := ctx.DB.Get(&group, "SELECT * FROM `group` WHERE name=?", name)
-	log.Debug(err)
+	err := ctx.DB.Get(&group, "SELECT id FROM `group` WHERE name=?", name)
 	if err == sql.ErrNoRows {
-		return nil, ErrGroupNotFound
+		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-
 	return &group, nil
 }
 

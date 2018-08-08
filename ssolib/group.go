@@ -204,7 +204,7 @@ func (gr GroupResource) Get(ctx context.Context, r *http.Request) (int, interfac
 
 	mctx := getModelContext(ctx)
 
-	g, err := group.GetGroupByName(mctx, groupname)
+	g, err := group.GetGroupIdByName(mctx, groupname)
 	if err != nil {
 		if err == group.ErrGroupNotFound {
 			return http.StatusNotFound, "No such group"
@@ -266,7 +266,7 @@ func (gr GroupResource) Delete(ctx context.Context, r *http.Request) (int, inter
 
 		mctx := getModelContext(ctx)
 
-		g, err := group.GetGroupByName(mctx, groupname)
+		g, err := group.GetGroupIdByName(mctx, groupname)
 		if err != nil {
 			if err == group.ErrGroupNotFound {
 				return http.StatusNotFound, "No such group"
@@ -328,7 +328,7 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 	}
 
 	mctx := getModelContext(ctx)
-	g, err := group.GetGroupByName(mctx, groupname)
+	g, err := group.GetGroupIdByName(mctx, groupname)
 	t2 := time.Now()
 	log.Debug(t2.Sub(t1))
 	switch {
@@ -405,7 +405,7 @@ func (mr MemberResource) Put(ctx context.Context, r *http.Request) (int, interfa
 
 		mctx := getModelContext(ctx)
 
-		g, err := group.GetGroupByName(mctx, groupname)
+		g, err := group.GetGroupIdByName(mctx, groupname)
 		switch {
 		case err == group.ErrGroupNotFound:
 			return http.StatusNotFound, "no such group"
@@ -488,7 +488,7 @@ func (mr MemberResource) Delete(ctx context.Context, r *http.Request) (int, inte
 
 		mctx := getModelContext(ctx)
 
-		g, err := group.GetGroupByName(mctx, groupname)
+		g, err := group.GetGroupIdByName(mctx, groupname)
 		switch {
 		case err == group.ErrGroupNotFound:
 			return http.StatusNotFound, "no such group"
@@ -571,7 +571,7 @@ func (gmr GroupMemberResource) Put(ctx context.Context, r *http.Request) (int, i
 
 		mctx := getModelContext(ctx)
 
-		g, err := group.GetGroupByName(mctx, groupname)
+		g, err := group.GetGroupIdByName(mctx, groupname)
 		switch {
 		case err == group.ErrGroupNotFound:
 			return http.StatusNotFound, "no such group"
@@ -579,7 +579,7 @@ func (gmr GroupMemberResource) Put(ctx context.Context, r *http.Request) (int, i
 			panic(err)
 		}
 
-		gson, gerr := group.GetGroupByName(mctx, sonname)
+		gson, gerr := group.GetGroupIdByName(mctx, sonname)
 
 		if g.GroupType == iuser.SSOLIBGROUP {
 			ok, currentUserRole, err := g.GetMember(mctx, currentUser)
@@ -641,7 +641,7 @@ func (gmr GroupMemberResource) Delete(ctx context.Context, r *http.Request) (int
 
 		mctx := getModelContext(ctx)
 
-		g, err := group.GetGroupByName(mctx, groupname)
+		g, err := group.GetGroupIdByName(mctx, groupname)
 		switch {
 		case err == group.ErrGroupNotFound:
 			return http.StatusNotFound, "no such group"
@@ -649,7 +649,7 @@ func (gmr GroupMemberResource) Delete(ctx context.Context, r *http.Request) (int
 			panic(err)
 		}
 
-		gson, gerr := group.GetGroupByName(mctx, sonname)
+		gson, gerr := group.GetGroupIdByName(mctx, sonname)
 
 		if g.GroupType == iuser.SSOLIBGROUP {
 			ok, currentUserRole, err := g.GetMember(mctx, currentUser)

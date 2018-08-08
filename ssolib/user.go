@@ -40,7 +40,7 @@ func (s *Server) UsersList(ctx context.Context, w http.ResponseWriter, r *http.R
 	status, obj := requireScope(ctx, "read:user", func(u iuser.User) (int, interface{}) {
 		mctx := getModelContext(ctx)
 
-		adminsGroup, err := group.GetGroupByName(mctx, "admins")
+		adminsGroup, err := group.GetGroupIdByName(mctx, "admins")
 		if err != nil {
 			panic(err)
 		}
@@ -114,7 +114,7 @@ func (s *Server) BatchUsers(ctx context.Context, w http.ResponseWriter, r *http.
 	currentUser := getCurrentUser(ctx)
 	isAdmin := false
 	if currentUser != nil {
-		adminsGroup, err := group.GetGroupByName(mctx, "admins")
+		adminsGroup, err := group.GetGroupIdByName(mctx, "admins")
 		if err != nil {
 			panic(err)
 		}
@@ -234,7 +234,7 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 	isAdmin := false
 	isSelf := false
 	if currentUser != nil {
-		adminsGroup, err := group.GetGroupByName(mctx, "admins")
+		adminsGroup, err := group.GetGroupIdByName(mctx, "admins")
 		if err != nil {
 			panic(err)
 		}
@@ -274,7 +274,7 @@ func (ur UserResource) Delete(ctx context.Context, r *http.Request) (int, interf
 			return http.StatusNotFound, "no such user"
 		}
 
-		adminsGroup, err := group.GetGroupByName(mctx, "admins")
+		adminsGroup, err := group.GetGroupIdByName(mctx, "admins")
 		if err != nil {
 			panic(err)
 		}

@@ -570,7 +570,7 @@ func ListFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
 
 func ListAdminFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
 	var fathers []int
-	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?) AND role=?", fathers, 1)
+	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?) AND role=?", fathers, ADMIN)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -579,3 +579,16 @@ func ListAdminFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) 
 	}
 	return fathers, nil
 }
+
+func GetAdminIdsOfGroup(ctx *models.Context, gId int)([]int, error) {
+	var admins []int
+	err := ctx.DB.Select(&admins, "SELECT user_id FROM user_group WHERE group_id=? AND role=?", gId, ADMIN)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return admins, nil
+}
+

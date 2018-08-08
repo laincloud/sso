@@ -581,3 +581,16 @@ func GetRoleOfUser(mctx *models.Context, uId int, gId int) (MemberRole, error){
 	}
 	return Roles[0], nil
 }
+
+
+func CheckIfInGroup(ctx *models.Context, groupId int, uId int) (bool) {
+	users := []int{}
+	err := ctx.DB.Select(&users, "SELECT user_id FROM user_group WHERE group_id=? AND user_id=?",groupId, uId)
+	if err != nil {
+		return false
+	}
+	if len(users) == 1 {
+		return true
+	}
+	return false
+}

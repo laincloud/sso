@@ -62,7 +62,7 @@ func (a *Application) MarshalJson() ([]byte, error) {
 type TargetContent struct {
 	Name string `json:"name"`
 	Role string `json:"role"`
-	AppName string `json:"app_name"`
+	AppId int `json:"app_id"`
 }
 
 type TargetStrOfGroup struct {
@@ -71,7 +71,7 @@ type TargetStrOfGroup struct {
 }
 
 type TargetStrOfRole struct {
-	AppName string
+	AppId int
 	RoleName string
 	Role    string
 }
@@ -86,7 +86,7 @@ func (a *Application) ParseTarget() {
 			a.TargetContent= &TargetContent{
 				temp.RoleName,
 				temp.Role,
-				temp.AppName,
+				temp.AppId,
 			}
 		} else if a.TargetType == "group" {
 			var temp TargetStrOfGroup
@@ -94,7 +94,7 @@ func (a *Application) ParseTarget() {
 			a.TargetContent= &TargetContent{
 				temp.GroupName,
 				temp.Role,
-				"",
+				0,
 			}
 		}
 	}
@@ -120,7 +120,7 @@ func TransferTargetStr (target TargetContent, targetType string) interface{}{
 		}
 	} else if targetType == "role" {
 		return TargetStrOfRole {
-			AppName: target.AppName,
+			AppId: target.AppId,
 			RoleName:    target.Name,
 			Role:    target.Role,
 		}
@@ -134,27 +134,6 @@ type PendingApplication struct {
 	OperatorEmail string `db:"operator_email" json:"operator_email"`
 	Created       string `json:"created"`
 	Updated       string `json:"updated"`
-}
-
-
-func CreatePendingApplication(ctx *models.Context, applicationId int, oprEmail string) (*PendingApplication, error) {
-	tx := ctx.DB.MustBegin()
-	result, err := tx.Exec(
-		"INSERT INTO pending_application (application_id, operator_email) VALUES(?, ?)",applicationId, oprEmail)
-	if err2 := tx.Commit(); err2 != nil {
-		log.Debug(err2)
-		return nil, err2
-	}
-	if err != nil {
-		log.Debug(err)
-		return nil, err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		log.Debug(err)
-		return nil, err
-	}
-	return GetPendingApplication(ctx, int(id))
 }
 
 
@@ -173,15 +152,6 @@ func GetPendingApplicationByEmail(ctx *models.Context, email string, from int, t
 }
 
 
-func GetPendingApplication(ctx *models.Context, id int) (*PendingApplication, error) {
-	applications := PendingApplication{}
-	err := ctx.DB.Get(&applications, "SELECT * FROM pending_application WHERE id=?", id)
-	if err != nil {
-		return nil, err
-	}
-	return &applications, nil
-}
-
 func GetPendingApplicationByApplicationId(ctx *models.Context, id int) ([]PendingApplication, error) {
 	log.Debug("start getting pending_application")
 	applications := []PendingApplication{}
@@ -193,66 +163,57 @@ func GetPendingApplicationByApplicationId(ctx *models.Context, id int) ([]Pendin
 	return applications, nil
 }
 
-func CreateApplication (ctx *models.Context, applicantEmail string, targetType string, target *TargetContent, Reason string) (*Application, error) {
+func CreateApplication (mctx *models.Context, newApp *Application, adminEmails []string) (*Application, error) {
 	log.Debug("CreateApplication")
-	tx := ctx.DB.MustBegin()
-	str := TransferTargetStr(*target, targetType)
+	tx := mctx.DB.MustBegin()
+	str := TransferTargetStr(*newApp.TargetContent, newApp.TargetType)
 	t, err:= json.Marshal(str)
 	if err != nil {
 		return nil, err
 	}
 	result, err := tx.Exec(
 		"INSERT INTO application (applicant_email, target_type, target, reason, status, commit_email) VALUES(?, ?, ?, ?, ?, ?)",
-		applicantEmail, targetType, string(t), Reason, "initialled", "NULL")
+		newApp.ApplicantEmail, newApp.TargetType, string(t), newApp.Reason, "initialled", "NULL")
 	if err != nil {
-		log.Debug(err)
+		tx.Rollback()
 		return nil, err
-	}
-	if err2 := tx.Commit(); err2 != nil {
-		log.Debug(err2)
-		return nil, err2
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
-		log.Debug(err)
+		tx.Rollback()
 		return nil, err
 	}
-	log.Debug("finish creating application")
-	return GetApplication(ctx, int(id))
+	for _, adminEmail := range adminEmails {
+		_, err = tx.Exec(
+			"INSERT INTO pending_application (application_id, operator_email) VALUES(?, ?)", id, adminEmail)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+	return GetApplication(mctx, int(id))
 }
 
 
-func UpdateApplication (ctx *models.Context, id int, Status string, CommitEmail string) (*Application, error) {
+func FinishApplication (ctx *models.Context, id int, status string, commitEmail string) (*Application, error) {
 	tx := ctx.DB.MustBegin()
 	_, err := tx.Exec(
-		"UPDATE application SET status=?, commit_email=? WHERE id=?",Status, CommitEmail, id)
+		"UPDATE application SET status=?, commit_email=? WHERE id=?", status, commitEmail, id)
 	if err != nil {
-		log.Debug(err)
+		tx.Rollback()
 		return nil, err
 	}
-	if err1 := tx.Commit(); err1 != nil {
-		log.Debug(err1)
-		return nil, err1
-	}
-	return GetApplication(ctx, id)
-}
-
-func FinishApplication (ctx *models.Context, id int, Status string, CommitEmail string) (*Application, error) {
-	tx := ctx.DB.MustBegin()
-	_, err := tx.Exec(
-		"UPDATE application SET status=?, commit_email=? WHERE id=?",Status, CommitEmail, id)
+	_, err = tx.Exec("DELETE FROM pending_application WHERE application_id=?", id)
 	if err != nil {
-		log.Debug(err)
+		tx.Rollback()
 		return nil, err
 	}
-	_, err1 := tx.Exec("DELETE FROM pending_application WHERE application_id=?", id)
-	if err1 != nil {
-		log.Debug(err1)
-		return nil, err1
-	}
-	if err2 := tx.Commit(); err2 != nil {
-		log.Debug(err2)
-		return nil, err2
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	return GetApplication(ctx, id)
 }
@@ -340,12 +301,11 @@ func RecallApplication(ctx *models.Context, id int) (error) {
 		tx.Rollback()
 		return err
 	}
-	_, err1 := tx.Exec("DELETE FROM pending_application WHERE application_id=?", id)
-	if err1 != nil {
-		return err1
+	_, err = tx.Exec("DELETE FROM pending_application WHERE application_id=?", id)
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-	return nil
+	err = tx.Commit()
+	return err
 }
