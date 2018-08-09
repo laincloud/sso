@@ -54,26 +54,28 @@ func CreateGroup(ctx *models.Context, group *Group) (*Group, error) {
 		"INSERT INTO `group` (name, fullname, backend) VALUES (?, ?, ?)",
 		group.Name, group.FullName, group.GroupType)
 
-	if err2 := tx.Commit(); err2 != nil {
-		log.Debug(err2)
-		return nil, err2
-	}
 
 	if err != nil {
-		log.Debug(err)
+		tx.Rollback()
 		return nil, err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	if valid {
 		err = writeGroupDepth(ctx, int(id), 1)
 		if err != nil {
+			tx.Rollback()
 			panic(err)
 		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
 	}
 	return GetGroup(ctx, int(id))
 }
@@ -170,18 +172,9 @@ func DeleteGroup(ctx *models.Context, group *Group) error {
 }
 
 func deleteGroup(ctx *models.Context, group *Group) error {
-	tx := ctx.DB.MustBegin()
-	_, err := tx.Exec("DELETE FROM `group` WHERE id=?", group.Id)
+	_, err := ctx.DB.Exec("DELETE FROM `group` WHERE id=?", group.Id)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func GetAllDateBaseGroup(ctx *models.Context) (*Group, error) {

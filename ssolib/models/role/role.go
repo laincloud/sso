@@ -67,14 +67,9 @@ func InitDatabase(ctx *models.Context) {
 }
 
 func CreateRoleWithGroup(ctx *models.Context, roleName string, fullName string, appId int, groupId int) (*Role, error) {
-	tx := ctx.DB.MustBegin()
-	_, err := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"INSERT INTO role (id, name, fullname, app_id) VALUES (?, ?, ?, ?)",
 		groupId, roleName, fullName, appId)
-	if err2 := tx.Commit(); err2 != nil {
-		log.Debug(err2)
-		return nil, err2
-	}
 	if err != nil {
 		log.Debug(err)
 		return nil, err
@@ -118,14 +113,10 @@ func CreateRoleWithoutGroup(ctx *models.Context, roleName string, fullName strin
 		return nil, err
 	}
 
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("UPDATE role SET super_id=? WHERE id=?", superId, r.Id)
-	err2 := tx.Commit()
-	if err1 != nil {
-		return nil, err1
-	}
-	if err2 != nil {
-		return nil, err2
+	_, err = ctx.DB.Exec("UPDATE role SET super_id=? WHERE id=?", superId, r.Id)
+
+	if err != nil {
+		return nil, err
 	}
 	return GetRole(ctx, r.Id)
 
@@ -198,16 +189,11 @@ func UpdateRole(ctx *models.Context, id int, name string, fullname string, paren
 		return nil, err
 	}
 	if role.SuperRoleId == parent {
-		tx := ctx.DB.MustBegin()
-		_, err1 := tx.Exec(
+		_, err := ctx.DB.Exec(
 			"UPDATE role SET name=?, fullname=? WHERE id=?",
 			name, fullname, id)
-		err2 := tx.Commit()
-		if err1 != nil {
-			return nil, err1
-		}
-		if err2 != nil {
-			return nil, err2
+		if err != nil {
+			return nil, err
 		}
 		return GetRole(ctx, id)
 	} else if role.SuperRoleId == -1 {
@@ -241,16 +227,12 @@ func UpdateRole(ctx *models.Context, id int, name string, fullname string, paren
 				g.RemoveGroupMemberWithoutLock(ctx, sonG)
 				g.AddGroupMemberWithoutLock(ctx, newSonG, group.ADMIN)
 
-				tx := ctx.DB.MustBegin()
-				_, err1 := tx.Exec(
+				_, err = ctx.DB.Exec(
 					"UPDATE role SET name=?, fullname=?, super_id=? WHERE id=?",
 					name, fullname, parent, id)
-				err2 := tx.Commit()
-				if err1 != nil {
-					return nil, err1
-				}
-				if err2 != nil {
-					return nil, err2
+
+				if err != nil {
+					return nil, err
 				}
 				return GetRole(ctx, id)
 			}
@@ -316,24 +298,23 @@ func DeleteRole(ctx *models.Context, id int) error {
 			return err
 		}
 	}
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
 	subRoles, err := getSubRoles(ctx, id)
 	if err == ErrLeafRoleHasNoSubRole {
 		subRoles = []*Role{}
 	} else if err != nil {
+		tx.Rollback()
 		return err
 	}
 
 	g, err := group.GetGroup(ctx, id)
 	if err != nil {
 		log.Error(err)
+		tx.Rollback()
 		panic(err)
 	}
 	err = group.DeleteGroup(ctx, g)
 	if err != nil {
+		tx.Rollback()
 		panic(err)
 	}
 
@@ -341,38 +322,32 @@ func DeleteRole(ctx *models.Context, id int) error {
 		tmpGroup, err := group.GetGroup(ctx, sRole.Id)
 		if err != nil {
 			log.Error(err)
+			tx.Rollback()
 			panic(err)
 		}
 		err = tmpGroup.AddGroupMember(ctx, sGroup, group.ADMIN)
 		if err != nil {
 			log.Error(err)
+			tx.Rollback()
 			panic(err)
 		}
-		tx = ctx.DB.MustBegin()
-		_, err1 := tx.Exec(
+		_, err = tx.Exec(
 			"UPDATE role SET super_id=? WHERE id=?",
 			superId, sRole.Id)
-		err2 := tx.Commit()
-		if err1 != nil {
-			return err1
-		}
-		if err2 != nil {
-			return err2
+		if err != nil {
+			tx.Rollback()
+			return err
 		}
 	}
 
-	tx = ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
+	_, err = tx.Exec(
 		"DELETE FROM role WHERE id=?", id)
-	err2 := tx.Commit()
-	if err1 != nil {
-		return err1
-	}
-	if err2 != nil {
-		return err2
-	}
 
-	return nil
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
 func getSuperRole(ctx *models.Context, roleId int) (*Role, error) {
@@ -486,24 +461,21 @@ func IsUserInRole(ctx *models.Context, user iuser.User, role *Role) (bool, group
 
 func UpdateRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
 	tx := ctx.DB.MustBegin()
-	_, err0 := tx.Exec("DELETE FROM role_resource WHERE role_id=?", roleId)
-	if err0 != nil {
-		return err0
+	_, err := tx.Exec("DELETE FROM role_resource WHERE role_id=?", roleId)
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 	for _, rId := range resourcesIds {
-		_, err1 := tx.Exec(
+		_, err := tx.Exec(
 			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
 			roleId, rId)
-		if err1 != nil {
+		if err != nil {
 			tx.Rollback()
-			return err1
+			return err
 		}
 	} 
-	err2 := tx.Commit()
-	if err2 != nil {
-		return err2
-	}
-	return nil
+	return tx.Commit()
 }
 
 func AddRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
@@ -511,18 +483,15 @@ func AddRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error 
 
 	tx := ctx.DB.MustBegin()
 	for _, rId := range resourcesIds {
-		_, err1 := tx.Exec(
+		_, err := tx.Exec(
 			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
 			roleId, rId)
-		if err1 != nil {
-			return err1
+		if err != nil {
+			tx.Rollback()
+			return err
 		}
 	}
-	err2 := tx.Commit()
-	if err2 != nil {
-		return err2
-	}
-	return nil
+	return tx.Commit()
 }
 
 
@@ -558,14 +527,12 @@ func IsLeafRole(ctx *models.Context, roleId int) bool {
 func RemoveRoleResource(ctx *models.Context, roleId int, resourceIds []int) error {
 	tx := ctx.DB.MustBegin()
 	for _, rId := range resourceIds {
-		_, err1 := tx.Exec("DELETE FROM role_resource WHERE role_id=? AND resource_id=?",
+		_, err := tx.Exec("DELETE FROM role_resource WHERE role_id=? AND resource_id=?",
 			roleId, rId)
-		if err1 != nil {
-			return err1
+		if err != nil {
+			tx.Rollback()
+			return err
 		}
 	}
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-	return nil
+	return tx.Commit()
 }

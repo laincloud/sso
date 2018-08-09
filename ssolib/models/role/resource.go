@@ -42,13 +42,9 @@ type RoleResources struct {
 
 func CreateResource(ctx *models.Context, resource *Resource) (*Resource, error) {
 	log.Debug("CreateResource")
-	tx := ctx.DB.MustBegin()
-	result, err := tx.Exec(
+	result, err := ctx.DB.Exec(
 		"INSERT INTO resource (name, fullname, app_id, data, owner) VALUES(?, ?, ?, ?, ?)", resource.Name, resource.Description, resource.AppId, resource.Data, resource.Owner)
-	if err2 := tx.Commit(); err2 != nil {
-		log.Debug(err2)
-		return nil, err2
-	}
+
 	if err != nil {
 		log.Debug(err)
 		return nil, err
@@ -73,14 +69,10 @@ func GetResource(ctx *models.Context, id int) (*Resource, error) {
 }
 
 func UpdateResource(ctx *models.Context, id int, name string, desc string, data string) (*Resource, error) {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("UPDATE resource SET name=?, fullname=?, data=? WHERE id=?", name, desc, data, id)
-	err2 := tx.Commit()
-	if err1 != nil {
-		return nil, err1
-	}
-	if err2 != nil {
-		return nil, err2
+	_, err := ctx.DB.Exec("UPDATE resource SET name=?, fullname=?, data=? WHERE id=?", name, desc, data, id)
+
+	if err != nil {
+		return nil, err
 	}
 	return GetResource(ctx, id)
 }
@@ -92,15 +84,13 @@ func DeleteResource(ctx *models.Context, id int) error {
 		tx.Rollback()
 		return err
 	}
-	_, err1 := tx.Exec("DELETE FROM resource WHERE id=?",
+	_, err = tx.Exec("DELETE FROM resource WHERE id=?",
 		id)
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
-	if err1 != nil {
-		return err1
-	}
-	return nil
+	return tx.Commit()
 }
 
 func GetResourcesByIds(ctx *models.Context, ids []int) ([]Resource, error) {

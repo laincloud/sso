@@ -41,58 +41,27 @@ CREATE TABLE IF NOT EXISTS user_group (
 )`
 
 func (g *Group) AddMember(ctx *models.Context, user iuser.User, role MemberRole) error {
-	tx := ctx.DB.MustBegin()
 	log.Debug("begin add:", user.GetId(), g.Id, role)
-	_, err1 := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"INSERT INTO user_group (user_id, group_id, role) VALUES (?, ?, ?)",
 		user.GetId(), g.Id, role)
 
-	err2 := tx.Commit()
-
-	if err1 != nil {
-		return err1
-	}
-
-	if err2 != nil {
-		return err2
-	}
-
-	return nil
+	return err
 }
 
 func (g *Group) UpdateMember(ctx *models.Context, user iuser.User, role MemberRole) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"UPDATE user_group SET role=? WHERE user_id=? AND group_id=?",
 		role, user.GetId(), g.Id)
 
-	err2 := tx.Commit()
-
-	if err1 != nil {
-		return err1
-	}
-
-	if err2 != nil {
-		return err2
-	}
-
-	return nil
+	return err
 }
 
 func (g *Group) RemoveMember(ctx *models.Context, user iuser.User) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM user_group WHERE user_id=? AND group_id=?",
+	_, err := ctx.DB.Exec("DELETE FROM user_group WHERE user_id=? AND group_id=?",
 		user.GetId(), g.Id)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 }
 
 // not recursive for nested groups
@@ -189,17 +158,9 @@ func (g *Group) GetMember(ctx *models.Context, u iuser.User) (ok bool, role Memb
 
 // must not recursive
 func (g *Group) removeAllMembers(ctx *models.Context) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM user_group WHERE group_id=?", g.Id)
+	_, err := ctx.DB.Exec("DELETE FROM user_group WHERE group_id=?", g.Id)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-	return nil
+	return err
 }
 
 // direct groups of the users, for now it is used only in "管理员特供"
@@ -423,18 +384,9 @@ func getGroupsDirectlyOfUser(ctx *models.Context, user iuser.User) ([]Group, err
 }
 
 func RemoveUserFromAllGroups(ctx *models.Context, user iuser.User) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM user_group WHERE user_id=?", user.GetId())
+	_, err := ctx.DB.Exec("DELETE FROM user_group WHERE user_id=?", user.GetId())
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 }
 
 func backendUsersToMembers(users []iuser.User) []Member {

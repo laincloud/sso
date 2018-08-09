@@ -164,23 +164,13 @@ func (s *Storage) SetClient(id string, client osin.Client) error {
 
 func (s *Storage) SaveAuthorize(data *osin.AuthorizeData) error {
 	log.Debugf("SaveAuthorize: %s", data.Code)
-
-	tx := s.ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
+	_, err := s.ctx.DB.Exec(
 		"INSERT INTO oauth2_authorize_data (app_id, code, expires_in, scope, redirect_uri, state, user_id) "+
 			"VALUES (?, ?, ?, ?, ?, ?, ?)",
 		data.Client.GetId(), data.Code, data.ExpiresIn, data.Scope,
 		data.RedirectUri, data.State, data.UserData.(AuthorizeUserData).UserId)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 }
 
 func (s *Storage) LoadAuthorize(code string) (*osin.AuthorizeData, error) {
@@ -237,18 +227,9 @@ func (s *Storage) getAuthorizeData(id int) (*osin.AuthorizeData, error) {
 
 func (s *Storage) RemoveAuthorize(code string) error {
 	log.Debugf("RemoveAuthorize: %s", code)
-	tx := s.ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM oauth2_authorize_data WHERE code=?", code)
+	_, err := s.ctx.DB.Exec("DELETE FROM oauth2_authorize_data WHERE code=?", code)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 }
 
 func (s *Storage) SaveAccess(data *osin.AccessData) error {
@@ -258,10 +239,6 @@ func (s *Storage) SaveAccess(data *osin.AccessData) error {
 		userdata = AccessUserData{}
 	}
 	tx := s.ctx.DB.MustBegin()
-
-	defer func() {
-		tx.Commit()
-	}()
 
 	var someID int
 	if data.AuthorizeData != nil {
@@ -283,6 +260,7 @@ func (s *Storage) SaveAccess(data *osin.AccessData) error {
 		userdata.AccessDataId,
 		data.AccessToken, data.RefreshToken, data.ExpiresIn, data.Scope,
 		data.RedirectUri, userdata.UserId); err != nil {
+		tx.Rollback()
 		return err
 	}
 
@@ -290,15 +268,12 @@ func (s *Storage) SaveAccess(data *osin.AccessData) error {
 		if _, err := tx.Exec(
 			"INSERT INTO oauth2_refresh (refresh_token, access_token) "+
 				"VALUES (?, ?)", data.RefreshToken, data.AccessToken); err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return tx.Commit()
 }
 
 func (s *Storage) LoadAccess(code string) (*osin.AccessData, error) {
@@ -377,18 +352,9 @@ func (s *Storage) getAccessData(id int) (*osin.AccessData, error) {
 
 func (s *Storage) RemoveAccess(code string) error {
 	log.Debugf("RemoveAccess: %s", code)
-	tx := s.ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM oauth2_access_data WHERE access_token=?", code)
+	_, err := s.ctx.DB.Exec("DELETE FROM oauth2_access_data WHERE access_token=?", code)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 }
 
 func (s *Storage) LoadRefresh(code string) (*osin.AccessData, error) {
@@ -403,16 +369,9 @@ func (s *Storage) LoadRefresh(code string) (*osin.AccessData, error) {
 
 func (s *Storage) RemoveRefresh(code string) error {
 	log.Debugf("RemoveRefresh: %s", code)
-	tx := s.ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM oauth2_refresh WHERE refresh_token=?", code)
+	_, err := s.ctx.DB.Exec("DELETE FROM oauth2_refresh WHERE refresh_token=?", code)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-	if err1 != nil {
-		return err1
-	}
-	return nil
+	return err
 }
 
 func parseMySQLTimeString(s string) (time.Time, error) {
