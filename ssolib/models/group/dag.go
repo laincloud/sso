@@ -152,18 +152,9 @@ func (g *Group) UpdateGroupMemberRole(ctx *models.Context, son *Group, role Memb
 	if err != nil {
 		return err
 	}
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("UPDATE groupdag SET role=? WHERE father_id=? AND son_id=?", role, g.Id, son.Id)
-	err2 := tx.Commit()
-	if err1 != nil {
-		return err1
-	}
+	_, err = ctx.DB.Exec("UPDATE groupdag SET role=? WHERE father_id=? AND son_id=?", role, g.Id, son.Id)
 
-	if err2 != nil {
-		return err2
-	}
-
-	return nil
+	return err
 }
 
 func (g *Group) RemoveGroupMemberWithoutLock(ctx *models.Context, son *Group) error {
@@ -199,19 +190,10 @@ func (g *Group) RemoveGroupMember(ctx *models.Context, son *Group) error {
 }
 
 func (g *Group) removeGroupMember(ctx *models.Context, son *Group) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM groupdag WHERE father_id=? AND son_id=?",
+	_, err := ctx.Exec("DELETE FROM groupdag WHERE father_id=? AND son_id=?",
 		g.Id, son.Id)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 
 }
 
@@ -464,57 +446,31 @@ func upSearch(ctx *models.Context, fatherId, sonId, fatherDepth int) (bool, map[
 // key is group id, value is depth, group must exist
 func writeDepths(ctx *models.Context, depths map[int]int) error {
 	tx := ctx.DB.MustBegin()
-	var err1 error
+	var err error
 	for k, v := range depths {
-		_, err1 = tx.Exec("UPDATE groupdepth SET depth=? WHERE group_id=?", v, k)
-		if err1 != nil {
+		_, err = tx.Exec("UPDATE groupdepth SET depth=? WHERE group_id=?", v, k)
+		if err != nil {
+			tx.Rollback()
 			break
 		}
 	}
-	err2 := tx.Commit()
-	if err1 != nil {
-		return err1
-	}
-	if err2 != nil {
-		return err2
-	}
-	return nil
+	err = tx.Commit()
+	return err
 }
 
 func deleteGroupDepth(ctx *models.Context, group *Group) error {
-	tx := ctx.DB.MustBegin()
-	_, err := tx.Exec("DELETE FROM groupdepth WHERE group_id=?", group.Id)
+	_, err := ctx.DB.Exec("DELETE FROM groupdepth WHERE group_id=?", group.Id)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (g *Group) addGroupMember(ctx *models.Context, son *Group, role MemberRole) error {
-	tx := ctx.DB.MustBegin()
-
 	log.Debug("add group member")
-	_, err1 := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"INSERT INTO groupdag (father_id, son_id, role) VALUES (?, ?, ?)",
 		g.Id, son.Id, role)
 
-	err2 := tx.Commit()
-
-	if err1 != nil {
-		return err1
-	}
-
-	if err2 != nil {
-		return err2
-	}
-
-	return nil
+	return err
 }
 
 func getGroupDepth(ctx *models.Context, groupId int) (int, error) {
@@ -537,17 +493,9 @@ func getGroupDepth(ctx *models.Context, groupId int) (int, error) {
 }
 
 func writeGroupDepth(ctx *models.Context, groupId int, depth int) error {
-	tx := ctx.DB.MustBegin()
-	_, err := tx.Exec("INSERT INTO groupdepth (group_id, depth) VALUES (?, ?)", groupId, depth)
-	if err2 := tx.Commit(); err2 != nil {
-		log.Debug(err2)
-		return err2
-	}
-	if err != nil {
-		log.Debug(err)
-		return err
-	}
-	return nil
+	_, err := ctx.DB.Exec("INSERT INTO groupdepth (group_id, depth) VALUES (?, ?)", groupId, depth)
+
+	return err
 }
 
 func GetGroupMemberRole(ctx *models.Context, fatherId int, sonId int) (role MemberRole, err error) {
@@ -555,3 +503,40 @@ func GetGroupMemberRole(ctx *models.Context, fatherId int, sonId int) (role Memb
 		fatherId, sonId).Scan(&role)
 	return
 }
+
+func ListFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
+	var fathers []int
+	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?)", fathers)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return fathers, nil
+}
+
+func ListAdminFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
+	var fathers []int
+	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?) AND role=?", fathers, ADMIN)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return fathers, nil
+}
+
+func GetAdminIdsOfGroup(ctx *models.Context, gId int)([]int, error) {
+	var admins []int
+	err := ctx.DB.Select(&admins, "SELECT user_id FROM user_group WHERE group_id=? AND role=?", gId, ADMIN)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return admins, nil
+}
+
