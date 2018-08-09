@@ -139,6 +139,16 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	return app, nil
 }
 
+type AppInfo struct {
+	Id       int     `json:"id"`
+	FullName string  `json:"fullname"`
+}
+
+func ListApps(ctx *models.Context) ([]AppInfo, error) {
+	apps := []AppInfo{}
+	err := ctx.DB.Select(&apps, "SELECT id, fullname FROM app")
+	return apps, err
+}
 
 func ListAppsByAdminGroupIds(ctx *models.Context, groupIds []int) ([]App, error) {
 	query, args, err := sqlx.In("SELECT * FROM app WHERE admin_group_id IN(?)", groupIds)
@@ -156,23 +166,13 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	err := ctx.DB.Get(&app, "SELECT * FROM app WHERE id=?", id)
 	log.Debugf("GetAPP: %d finish", id)
 	if err == sql.ErrNoRows {
-		return nil, ErrAppNotFound
+		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
 	return &app, nil
 }
 
-func GetAppIdBYName(ctx *models.Context, name string) ([]int, error) {
-	appIds := []int{}
-	err := ctx.DB.Select(&appIds, "SELECT id FROM app WHERE fullname=?", name)
-	if err == sql.ErrNoRows {
-		return nil, ErrAppNotFound
-	} else if err != nil {
-		return nil, err
-	}
-	return appIds, nil
-}
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 	log.Debug("AppNameExist: %s", appName)

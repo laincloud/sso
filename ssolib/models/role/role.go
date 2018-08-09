@@ -151,6 +151,9 @@ func GetRolesByGroupIds(ctx *models.Context, groupIds []int) ([]Role, error) {
 func GetRolesByAppId(ctx *models.Context, appId int) ([]Role, error) {
 	roles := []Role{}
 	err := ctx.DB.Select(&roles, "SELECT * FROM role WHERE app_id=?", appId)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	return roles, err
 }
 
@@ -169,15 +172,18 @@ func GetRole(ctx *models.Context, id int) (*Role, error) {
 	return &role, nil
 }
 
-func GetRoleByName(ctx *models.Context, Name string, appId int) (*Role, error) {
-	role := Role{}
-	err := ctx.DB.Get(&role, "SELECT * FROM role WHERE name=? AND app_id=?", Name, appId)
+func GetRoleIdByName(ctx *models.Context, Name string, appId int) (int, error) {
+	roleIds := []int{}
+	err := ctx.DB.Get(&roleIds, "SELECT id FROM role WHERE name=? AND app_id=?", Name, appId)
 	if err == sql.ErrNoRows {
-		return nil, ErrRoleNotFound
+		return -1, nil
 	} else if err != nil {
-		return nil, err
+		return -1, err
 	}
-	return &role, nil
+	if len(roleIds) != 1 {
+		return -1, nil
+	}
+	return roleIds[0], nil
 }
 
 func UpdateRole(ctx *models.Context, id int, name string, fullname string, parent int) (*Role, error) {
@@ -499,6 +505,26 @@ func UpdateRoleResource(ctx *models.Context, roleId int, resourcesIds []int) err
 	}
 	return nil
 }
+
+func AddRoleResource(ctx *models.Context, roleId int, resourcesIds []int) error {
+	// only leaf role can have resources
+
+	tx := ctx.DB.MustBegin()
+	for _, rId := range resourcesIds {
+		_, err1 := tx.Exec(
+			"INSERT INTO role_resource (role_id, resource_id) VALUES (?, ?)",
+			roleId, rId)
+		if err1 != nil {
+			return err1
+		}
+	}
+	err2 := tx.Commit()
+	if err2 != nil {
+		return err2
+	}
+	return nil
+}
+
 
 func IsLeafRole(ctx *models.Context, roleId int) bool {
 	log.Debug(roleId)
