@@ -2,7 +2,6 @@ package ssolib
 
 import (
 	"errors"
-	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -22,6 +21,7 @@ import (
 var loginTemplate *template.Template
 
 func init() {
+	//os.Setenv("TEMPLATES_PATH","/Users/yixinf-o/go/src/github.com/laincloud/sso/templates")
 	templatesPath := os.Getenv("TEMPLATES_PATH")
 	if templatesPath == "" {
 		templatesPath = "./templates"
@@ -247,27 +247,26 @@ func (aw *AuthenticateWare) ServeHTTP(ctx context.Context, w http.ResponseWriter
 	return next(ctx, w, r)
 }
 
-func requireLogin(ctx context.Context, f func(u iuser.User) (int, interface{})) (int, interface{}) {
+func requireLogin(ctx context.Context) error {
 	user := getCurrentUser(ctx)
 	if user == nil {
-		return http.StatusUnauthorized, "require login to access this resource"
+		return errors.New("require login in")
 	}
-
-	return f(user)
+	return nil
 }
 
-func requireScope(ctx context.Context, scope string, f func(u iuser.User) (int, interface{})) (int, interface{}) {
-	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
-		scopes := getScope(ctx)
-
-		if scopes != nil {
-			for _, s := range scopes {
-				if s == scope {
-					return f(u)
-				}
+func requireScope(ctx context.Context, scope string) error {
+	err := requireLogin(ctx)
+	if err != nil {
+		return err
+	}
+	scopes := getScope(ctx)
+	if scopes != nil {
+		for _, s := range scopes {
+			if s == scope {
+				return nil
 			}
 		}
-
-		return http.StatusForbidden, fmt.Sprintf("require scope: %s", scope)
-	})
+	}
+	return errors.New("require scope")
 }

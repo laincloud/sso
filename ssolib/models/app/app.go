@@ -76,15 +76,10 @@ func (a *App) GetUserData() interface{} {
 }
 
 func UpdateApp(ctx *models.Context, app *App) (*App, error) {
-	tx := ctx.DB.MustBegin()
-	_, err := tx.Exec("UPDATE app SET fullname=?, redirect_uri=? WHERE id=?", app.FullName, app.RedirectUri, app.Id)
+	_, err := ctx.DB.Exec("UPDATE app SET fullname=?, redirect_uri=? WHERE id=?", app.FullName, app.RedirectUri, app.Id)
 	if err != nil {
 		log.Debug(err)
 		return nil, err
-	}
-	if err1 := tx.Commit(); err1 != nil {
-		log.Debug(err1)
-		return nil, err1
 	}
 	return GetApp(ctx, app.Id)
 }
@@ -104,33 +99,37 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	result, err := tx.Exec("INSERT INTO app (fullname, secret, redirect_uri) "+
 		"VALUES (?, ?, ?)", app.FullName, secret, app.RedirectUri)
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 	groupName := fmt.Sprintf(".app-%d", id)
 	groupFullName := fmt.Sprintf("App %d Admin Group", id)
 	g, err := group.CreateGroup(ctx, &group.Group{Name: groupName, FullName: groupFullName})
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	if _, err = tx.Exec("UPDATE app SET admin_group_id=? WHERE id=?",
 		g.Id, id); err != nil {
-		tx.Commit()
-		return nil, err
-	}
-	if err = tx.Commit(); err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	if err = g.AddMember(ctx, owner, group.ADMIN); err != nil {
+		tx.Rollback()
 		return nil, err
 	}
-
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
 	app, err = GetApp(ctx, int(id))
 	if err != nil {
 		return nil, err
@@ -139,6 +138,16 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	return app, nil
 }
 
+type AppInfo struct {
+	Id       int     `json:"id"`
+	FullName string  `json:"fullname"`
+}
+
+func ListApps(ctx *models.Context) ([]AppInfo, error) {
+	apps := []AppInfo{}
+	err := ctx.DB.Select(&apps, "SELECT id, fullname FROM app")
+	return apps, err
+}
 
 func ListAppsByAdminGroupIds(ctx *models.Context, groupIds []int) ([]App, error) {
 	query, args, err := sqlx.In("SELECT * FROM app WHERE admin_group_id IN(?)", groupIds)
@@ -156,23 +165,13 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	err := ctx.DB.Get(&app, "SELECT * FROM app WHERE id=?", id)
 	log.Debugf("GetAPP: %d finish", id)
 	if err == sql.ErrNoRows {
-		return nil, ErrAppNotFound
+		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
 	return &app, nil
 }
 
-func GetAppIdBYName(ctx *models.Context, name string) ([]int, error) {
-	appIds := []int{}
-	err := ctx.DB.Select(&appIds, "SELECT id FROM app WHERE fullname=?", name)
-	if err == sql.ErrNoRows {
-		return nil, ErrAppNotFound
-	} else if err != nil {
-		return nil, err
-	}
-	return appIds, nil
-}
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 	log.Debug("AppNameExist: %s", appName)

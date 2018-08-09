@@ -34,16 +34,11 @@ func DeleteAppRole(ctx *models.Context, appId int) (*app.App, error) {
 }
 
 func SetAppRole(ctx *models.Context, roleId int, appId int) (*app.App, error) {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"UPDATE app SET admin_role_id=? WHERE id=?",
 		roleId, appId)
-	err2 := tx.Commit()
-	if err1 != nil {
-		return nil, err1
-	}
-	if err2 != nil {
-		return nil, err2
+	if err != nil {
+		return nil, err
 	}
 	return app.GetApp(ctx, appId)
 }
@@ -87,45 +82,47 @@ func GetAppAdminRole(ctx *models.Context, appId int) (*Role, error) {
 func DeleteApp(ctx *models.Context, id int) ( error) {
 	tx := ctx.DB.MustBegin()
 	roles := []Role{}
-	err1 := ctx.DB.Select(&roles, "SELECT id FROM role WHERE app_id=?", id)
-	if err1 != nil {
-		return err1
+	err := ctx.DB.Select(&roles, "SELECT id FROM role WHERE app_id=?", id)
+	if err != nil {
+		return err
 	}
-	_, err2 := tx.Exec("DELETE FROM role WHERE app_id=?", id)
-	if err2 != nil {
-		return err2
+	_, err = tx.Exec("DELETE FROM role WHERE app_id=?", id)
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
-	_, err3 := tx.Exec("DELETE FROM resource WHERE app_id=?", id)
-	if err3 != nil {
-		return err3
+	_, err = tx.Exec("DELETE FROM resource WHERE app_id=?", id)
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 	for _,r := range roles {
 		if IsLeafRole(ctx, r.Id) {
 			_, err := tx.Exec("DELETE FROM role_resource WHERE role_id=?", id)
 			if err != nil {
+				tx.Rollback()
 				return err
 			}
 		}
 	}
-	_, err4 := tx.Exec("DELETE FROM app WHERE id=?", id)
-	if err4 != nil {
-		return err4
+	_, err = tx.Exec("DELETE FROM app WHERE id=?", id)
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 	log.Debug(roles)
 	for _,r := range roles {
 		g, err := group.GetGroup(ctx, r.Id)
 		if err != nil {
 			log.Error(err)
+			tx.Rollback()
 			panic(err)
 		}
 		err = group.DeleteGroup(ctx, g)
 		if err != nil {
+			tx.Rollback()
 			panic(err)
 		}
 	}
-	if err5 := tx.Commit(); err5 != nil {
-		log.Debug(err5)
-		return err5
-	}
-	return nil
+	return tx.Commit()
 }
