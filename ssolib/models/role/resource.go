@@ -60,9 +60,7 @@ func CreateResource(ctx *models.Context, resource *Resource) (*Resource, error) 
 func GetResource(ctx *models.Context, id int) (*Resource, error) {
 	resource := Resource{}
 	err := ctx.DB.Get(&resource, "SELECT * FROM resource WHERE id=?", id)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return &resource, nil

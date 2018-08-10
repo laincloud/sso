@@ -9,6 +9,7 @@ import (
 
 	"github.com/laincloud/sso/ssolib/models"
 	"github.com/laincloud/sso/ssolib/models/iuser"
+	"github.com/jmoiron/sqlx"
 )
 
 const createGroupDAGTableSQL = `
@@ -505,8 +506,13 @@ func GetGroupMemberRole(ctx *models.Context, fatherId int, sonId int) (role Memb
 }
 
 func ListFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
-	var fathers []int
-	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?)", fathers)
+	fathers := []int{}
+	query, args, err := sqlx.In("SELECT father_id FROM groupdag WHERE son_id IN(?)", sonIds)
+	if err != nil {
+		return nil, err
+	}
+	query = ctx.DB.Rebind(query)
+	err = ctx.DB.Select(&fathers, query, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -517,8 +523,13 @@ func ListFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
 }
 
 func ListAdminFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
-	var fathers []int
-	err := ctx.DB.Select(fathers, "SELECT father_id FROM groupdag WHERE son_id IN(?) AND role=?", fathers, ADMIN)
+	fathers := []int{}
+	query, args, err := sqlx.In("SELECT father_id FROM groupdag WHERE son_id IN(?) AND role=?", sonIds, ADMIN)
+	if err != nil {
+		return nil, err
+	}
+	query = ctx.DB.Rebind(query)
+	err = ctx.DB.Select(&fathers, query, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

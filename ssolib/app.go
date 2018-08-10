@@ -87,7 +87,6 @@ func (ar AppsResource) Post(ctx context.Context, r *http.Request) (int, interfac
 	if nameExist {
 		return http.StatusBadRequest, errors.New("app name exists!")
 	}
-
 	a, err := app.CreateApp(mctx, &app.App{FullName: appSpec.FullName, RedirectUri: appSpec.RedirectUri}, u)
 	if err != nil {
 		panic(err)
@@ -105,7 +104,6 @@ func (ar AppsResource) Post(ctx context.Context, r *http.Request) (int, interfac
 		RedirectUri: a.RedirectUri,
 		AdminGroup:  groupFromModel(adminGroup),
 	}
-
 	return http.StatusCreated, result
 }
 
@@ -172,7 +170,7 @@ func (ar AppResource) Put(ctx context.Context, r *http.Request) (int, interface{
 		RedirectUri string `json:"redirect_uri"`
 	}
 	if err := form.ParamBodyJson(r, &appSpec); err != nil {
-		return http.StatusBadRequest, ""
+		return http.StatusBadRequest, err
 	}
 	oldApp, err := app.GetApp(mctx, id)
 	if err != nil {
@@ -280,22 +278,3 @@ type App struct {
 	RedirectUri string `json:"redirect_uri"`
 	AdminGroup  *Group `json:"admin_group"`
 }
-
-type AppInformation struct {
-	server.BaseResource
-}
-
-
-func (ai AppInformation) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	err := requireLogin(ctx)
-	if err != nil {
-		return http.StatusUnauthorized, err
-	}
-	mctx := getModelContext(ctx)
-	Apps, err := app.ListApps(mctx)
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-	return http.StatusOK, Apps
-}
-

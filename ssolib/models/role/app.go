@@ -126,3 +126,4 @@ func DeleteApp(ctx *models.Context, id int) ( error) {
 	}
 	return tx.Commit()
 }
+
