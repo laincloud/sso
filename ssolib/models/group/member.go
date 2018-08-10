@@ -1,7 +1,6 @@
 package group
 
 import (
-	"container/list"
 	"database/sql"
 	"sort"
 
@@ -10,8 +9,10 @@ import (
 
 	"github.com/laincloud/sso/ssolib/models"
 	"github.com/laincloud/sso/ssolib/models/iuser"
-	"time"
+	"github.com/pkg/errors"
 )
+
+const MAXREQUEST int = 100
 
 type MemberRole int8
 
@@ -40,58 +41,27 @@ CREATE TABLE IF NOT EXISTS user_group (
 )`
 
 func (g *Group) AddMember(ctx *models.Context, user iuser.User, role MemberRole) error {
-	tx := ctx.DB.MustBegin()
 	log.Debug("begin add:", user.GetId(), g.Id, role)
-	_, err1 := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"INSERT INTO user_group (user_id, group_id, role) VALUES (?, ?, ?)",
 		user.GetId(), g.Id, role)
 
-	err2 := tx.Commit()
-
-	if err1 != nil {
-		return err1
-	}
-
-	if err2 != nil {
-		return err2
-	}
-
-	return nil
+	return err
 }
 
 func (g *Group) UpdateMember(ctx *models.Context, user iuser.User, role MemberRole) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"UPDATE user_group SET role=? WHERE user_id=? AND group_id=?",
 		role, user.GetId(), g.Id)
 
-	err2 := tx.Commit()
-
-	if err1 != nil {
-		return err1
-	}
-
-	if err2 != nil {
-		return err2
-	}
-
-	return nil
+	return err
 }
 
 func (g *Group) RemoveMember(ctx *models.Context, user iuser.User) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM user_group WHERE user_id=? AND group_id=?",
+	_, err := ctx.DB.Exec("DELETE FROM user_group WHERE user_id=? AND group_id=?",
 		user.GetId(), g.Id)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 }
 
 // not recursive for nested groups
@@ -151,12 +121,12 @@ func (g *Group) ListMembers(ctx *models.Context) ([]Member, error) {
 }
 
 func (g *Group) GetGroupMembersID(ctx *models.Context) ([]int, error) {
-	member := []int{}
-	err := ctx.DB.Select(&member, "SELECT user_id FROM user_group WHERE group_id=?", g.Id)
+	members := []int{}
+	err := ctx.DB.Select(&members, "SELECT user_id FROM user_group WHERE group_id=?", g.Id)
 	if err != nil {
 		return nil, err
 	}
-	return member, err
+	return members, err
 }
 
 // Return (true, role, nil) if u is member of g, otherwise return (false, 0, nil).
@@ -188,17 +158,9 @@ func (g *Group) GetMember(ctx *models.Context, u iuser.User) (ok bool, role Memb
 
 // must not recursive
 func (g *Group) removeAllMembers(ctx *models.Context) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM user_group WHERE group_id=?", g.Id)
+	_, err := ctx.DB.Exec("DELETE FROM user_group WHERE group_id=?", g.Id)
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-	return nil
+	return err
 }
 
 // direct groups of the users, for now it is used only in "管理员特供"
@@ -305,6 +267,24 @@ func GetGroupRolesDirectlyOfUser(ctx *models.Context, user iuser.User) ([]GroupR
 	return ret, nil
 }
 
+func getSSOLIBRoleDirectlyOfUser(ctx *models.Context, user iuser.User) (map[int]MemberRole, error) {
+	grMap := make(map[int]MemberRole)
+	if rows, err := ctx.DB.Query("SELECT group_id, role FROM user_group WHERE user_id=?", user.GetId()); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	} else {
+		for rows.Next() {
+			var groupId, role int
+			if err := rows.Scan(&groupId, &role); err == nil {
+				grMap[groupId] = MemberRole(role)
+			}
+		}
+	}
+	return grMap, nil
+}
+
 func getSSOLIBGroupRolesDirectlyOfUser(ctx *models.Context, user iuser.User) ([]GroupRole, error) {
 	groupIds := []int{}
 	grMap := make(map[int]MemberRole)
@@ -344,7 +324,7 @@ func getSSOLIBGroupRolesDirectlyOfUser(ctx *models.Context, user iuser.User) ([]
 // must be recursive to find out all the groups
 func GetGroupsOfUser(ctx *models.Context, user iuser.User) ([]Group, error) {
 	groups := []Group{}
-	mapGroups, err := getGroupsRecursivelyOfUser(ctx, user, false)
+	mapGroups, err := getGroupsRecursivelyOfUser(ctx, user)
 	if err != nil {
 		panic(err)
 	}
@@ -404,18 +384,9 @@ func getGroupsDirectlyOfUser(ctx *models.Context, user iuser.User) ([]Group, err
 }
 
 func RemoveUserFromAllGroups(ctx *models.Context, user iuser.User) error {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec("DELETE FROM user_group WHERE user_id=?", user.GetId())
+	_, err := ctx.DB.Exec("DELETE FROM user_group WHERE user_id=?", user.GetId())
 
-	if err2 := tx.Commit(); err2 != nil {
-		return err2
-	}
-
-	if err1 != nil {
-		return err1
-	}
-
-	return nil
+	return err
 }
 
 func backendUsersToMembers(users []iuser.User) []Member {
@@ -431,13 +402,13 @@ func backendUsersToMembers(users []iuser.User) []Member {
 
 func getGroupRolesRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly bool) (map[int]MemberRole, error) {
 	if adminOnly {
-		return getGroupsRecursivelyOfUser(ctx, user, true)
+		return getAdminGroupsRecursivelyOfUser(ctx, user)
 	} else {
-		admins, err := getGroupsRecursivelyOfUser(ctx, user, true)
+		admins, err := getAdminGroupsRecursivelyOfUser(ctx, user)
 		if err != nil {
 			panic(err)
 		}
-		ret, err := getGroupsRecursivelyOfUser(ctx, user, false)
+		ret, err := getGroupsRecursivelyOfUser(ctx, user)
 		if err != nil {
 			panic(err)
 		}
@@ -448,81 +419,131 @@ func getGroupRolesRecursivelyOfUser(ctx *models.Context, user iuser.User, adminO
 	}
 }
 
-func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User, adminOnly bool) (map[int]MemberRole, error) {
-	l := list.New()
+func getAdminGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User) (map[int]MemberRole, error) {
+	preQueue := make([]int, 0, MAXREQUEST)
 	ret := make(map[int]MemberRole)
-	var totalTime time.Duration
-	totalDatabase := 0
-	if adminOnly {
-		groupRoles, err := GetGroupRolesDirectlyOfUser(ctx, user)
-		if err != nil {
-			return nil, err
-		}
-		for _, v := range groupRoles {
-			if v.Role == ADMIN {
-				ret[v.Id] = ADMIN
-				l.PushBack(v.Id)
-			}
-		}
-	} else {
-		t1 := time.Now()
-		groups, err := getGroupsDirectlyOfUser(ctx, user)
-		t2 := time.Now()
-		totalDatabase++
-		totalTime = t2.Sub(t1)
-		log.Debugf("the %d th time using database for:",totalDatabase)
-		log.Debug(t2.Sub(t1))
-		if err != nil {
-			return nil, err
-		}
-		for _, v := range groups {
-			ret[v.Id] = NORMAL
-			l.PushBack(v.Id)
+	groupRoles, err := getSSOLIBRoleDirectlyOfUser(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	for gId, role := range groupRoles {
+		if role == ADMIN {
+			ret[gId] = ADMIN
+			preQueue = append(preQueue, gId)
 		}
 	}
-	for l.Len() > 0 {
-		iter := l.Front()
-		v := iter.Value.(int)
-		l.Remove(iter)
-		t1 := time.Now()
-		fathers, err := ListGroupFathersById(ctx, v)
-		t2 := time.Now()
-		totalDatabase++
-		totalTime += t2.Sub(t1)
-		log.Debugf("the %d th time using database for:",totalDatabase)
-		log.Debug(t2.Sub(t1))
-		if err != nil {
-			panic(err)
+	for true {
+		if len(preQueue) == 0 {
+			break
 		}
-		for _, g := range fathers {
-			if adminOnly {
-				if _, ok := ret[g.Id]; ok {
-					continue
-				}
-				t1 := time.Now()
-				role, err := GetGroupMemberRole(ctx, g.Id, v)
-				t2 := time.Now()
-				totalDatabase++
-				totalTime += t2.Sub(t1)
-				log.Debugf("the %d th time using database for:",totalDatabase)
-				log.Debug(t2.Sub(t1))
+		rawFathers := make([]int, 0, MAXREQUEST)
+		//when 1 < len <= MAXREQUEST, loop one time
+		for i := 0; ; i++ {
+			offset := i * MAXREQUEST
+			remain := len(preQueue) - offset
+			if remain <= MAXREQUEST {
+				queue := make([]int, remain, MAXREQUEST)
+				copy(queue, preQueue[offset:offset + remain])
+				partFathers, err := ListAdminFathersOfGroups(ctx, queue)
 				if err != nil {
-					panic(err)
+					return nil, err
 				}
-				if role != ADMIN {
-					continue
-				}
-				l.PushBack(g.Id)
-				ret[g.Id] = ADMIN
-			} else {
-				if _, ok := ret[g.Id]; !ok {
-					l.PushBack(g.Id)
-					ret[g.Id] = NORMAL
-				}
+				rawFathers = append(rawFathers,partFathers...)
+				break
+			}
+			queue := make([]int, MAXREQUEST, MAXREQUEST)
+			copy(queue, preQueue[offset:offset + MAXREQUEST])
+			partFathers, err := ListAdminFathersOfGroups(ctx, queue)
+			if err != nil {
+				return nil, err
+			}
+			rawFathers = append(rawFathers,partFathers...)
+		}
+		//deduplicate
+		fathers := make([]int, 0, MAXREQUEST)
+		for _,f := range rawFathers {
+			if _, ok := ret[f]; !ok {
+				ret[f] = ADMIN
+				fathers = append(fathers, f)
 			}
 		}
+		preQueue = fathers
 	}
-	log.Debugf("totally using database for %d times", totalDatabase)
-	log.Debug(totalTime)
 	return ret, nil
+}
+
+func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User) (map[int]MemberRole, error) {
+	preQueue := make([]int, 0, MAXREQUEST)
+	ret := make(map[int]MemberRole)
+	groups, err := getGroupsDirectlyOfUser(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range groups {
+		ret[v.Id] = NORMAL
+		preQueue = append(preQueue, v.Id)
+	}
+	for true {
+		if len(preQueue) == 0 {
+			break
+		}
+		rawFathers := make([]int, 0, MAXREQUEST)
+		//when 1 < len <= MAXREQUEST, loop one time
+		for i := 0; ; i++ {
+			offset := i * MAXREQUEST
+			remain := len(preQueue) - offset
+			if remain <= MAXREQUEST {
+				queue := make([]int, remain, MAXREQUEST)
+				copy(queue, preQueue[offset:offset + remain])
+				partFathers, err := ListFathersOfGroups(ctx, queue)
+				if err != nil {
+					return nil, err
+				}
+				rawFathers = append(rawFathers,partFathers...)
+				break
+			}
+			queue := make([]int, MAXREQUEST, MAXREQUEST)
+			copy(queue, preQueue[offset:offset + MAXREQUEST])
+			partFathers, err := ListFathersOfGroups(ctx, queue)
+			if err != nil {
+				return nil, err
+			}
+			rawFathers = append(rawFathers,partFathers...)
+		}
+		//deduplicate
+		fathers := make([]int, 0, MAXREQUEST)
+		for _,f := range rawFathers {
+			if _, ok := ret[f]; !ok {
+				ret[f] = NORMAL
+				fathers = append(fathers, f)
+			}
+		}
+		preQueue = fathers
+	}
+	return ret, nil
+}
+
+func GetRoleOfUser(mctx *models.Context, uId int, gId int) (MemberRole, error){
+	Roles := []MemberRole{}
+	err := mctx.DB.Select(&Roles, "SELECT role FROM user_group WHERE user_id =? AND group_id=?",
+		uId, gId)
+	if err != nil {
+		return NORMAL, err
+	}
+	if len(Roles) != 1 {
+		return NORMAL, errors.New("wrong number of roles")
+	}
+	return Roles[0], nil
+}
+
+func CheckIfInGroup(ctx *models.Context, groupId int, uId int) (bool) {
+	users := []int{}
+	err := ctx.DB.Select(&users, "SELECT user_id FROM user_group WHERE group_id=? AND user_id=?",groupId, uId)
+	if err != nil {
+		return false
+	}
+	if len(users) == 1 {
+		return true
+	}
+	return false
 }
