@@ -121,7 +121,7 @@ func (gr GroupsResource) Get(ctx context.Context, r *http.Request) (int, interfa
 func (gr GroupsResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	err := requireScope(ctx, "write:group")
 	if err != nil {
-		return http.StatusForbidden, err
+		return http.StatusUnauthorized, err
 	}
 	req := BackendGroup{}
 	if err := form.ParamBodyJson(r, &req); err != nil {
