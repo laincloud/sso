@@ -106,7 +106,7 @@ type RespWithLen struct {
 func getApplicationsForCommiting(ctx context.Context, from int, to int) (int, interface{}) {
 	Applications := []application.Application{}
 	mctx := getModelContext(ctx)
-	currentEmail := getCurrentUser(ctx).GetPublicProfile().GetEmail()
+	currentEmail := getCurrentUser(ctx).GetProfile().GetEmail()
 	pendingApplications, num, err := application.GetPendingApplicationByEmail(mctx, currentEmail, from, to)
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -185,6 +185,7 @@ func (ay Apply) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	currentEmail := currentUser.GetProfile().GetEmail()
 	commitEmail := r.Form.Get("commit_email")
 	if commitEmail == currentEmail {
+		log.Debug(commitEmail)
 		return getApplicationsForCommiting(ctx, from, to)
 	} else if commitEmail == "" {
 		islain := false
@@ -194,27 +195,27 @@ func (ay Apply) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 		}
 		//lain member checks all applications
 		if islain && applicantEmail == "" {
-			applications, num, err := application.GetAllApplications(mctx, status, from, to)
+			apps, num, err := application.GetAllApplications(mctx, status, from, to)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
-			applications = applications
+			applications = apps
 			total = num
 			//user checks his applications
 		} else if applicantEmail == "" || applicantEmail == currentEmail{
-			applications, num, err := application.GetApplications(mctx, currentEmail, status, from, to)
+			apps, num, err := application.GetApplications(mctx, currentEmail, status, from, to)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
-			applications = applications
+			applications = apps
 			total = num
 			//lain member checks some user's applications
 		} else if islain && applicantEmail != currentEmail {
-			applications, num, err := application.GetApplications(mctx, applicantEmail, status, from, to)
+			apps, num, err := application.GetApplications(mctx, applicantEmail, status, from, to)
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
-			applications = applications
+			applications = apps
 			total = num
 		} else {
 			return http.StatusBadRequest, "not qualified for the operation"

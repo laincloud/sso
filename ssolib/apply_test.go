@@ -30,17 +30,18 @@ func TestApply_Post(t *testing.T) {
 	th.logout()
 	th.login("testuser")
 	code2 ,resp2 := callPostApplicationOfRole(th)
+	t.Log(resp2)
 	assert.Equal(t, code2, http.StatusOK)
 	b, ok2 := resp2.([]application.Application)
 	assert.True(t, ok2)
-	assert.Equal(t, application.TargetContent{"role1","normal", "app1"}, *b[0].TargetContent)
+	assert.Equal(t, application.TargetContent{"role1","normal", 1}, *b[0].TargetContent)
 
 }
 
 func createApp(th *TestHelper) (int, interface{}){
 	r, _ := http.NewRequest("POST", "http://sso.example.com/api/apps",
 		strings.NewReader(`{"fullname": "app1", "redirect_uri": "https://example.com"}`))
-	return AppResource{}.Post(th.Ctx, r)
+	return AppsResource{}.Post(th.Ctx, r)
 }
 
 func createRole(th *TestHelper) (int, interface{}){
@@ -94,7 +95,7 @@ func callPostApplicationOfGroup(th *TestHelper) (int, interface{}) {
 
 func callPostApplicationOfRole(th *TestHelper) (int, interface{}) {
 	r, _ := http.NewRequest("POST", "http://sso.example.com/api/applications",
-		strings.NewReader(`{"target_type": "role", "reason":"testing", "target": [{"name": "role1","role":"normal","app_name":"app1"}]}`))
+		strings.NewReader(`{"target_type": "role", "reason":"testing", "target": [{"name": "role1","role":"normal","app_id":1}]}`))
 	return Apply{}.Post(th.Ctx, r)
 }
 

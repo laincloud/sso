@@ -121,7 +121,7 @@ func (gr GroupsResource) Get(ctx context.Context, r *http.Request) (int, interfa
 func (gr GroupsResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	err := requireScope(ctx, "write:group")
 	if err != nil {
-		return http.StatusUnauthorized, err
+		return http.StatusForbidden, err
 	}
 	req := BackendGroup{}
 	if err := form.ParamBodyJson(r, &req); err != nil {
@@ -199,7 +199,6 @@ func (gr GroupResource) Get(ctx context.Context, r *http.Request) (int, interfac
 	}
 
 	mctx := getModelContext(ctx)
-
 	g, err := group.GetGroupByName(mctx, groupname)
 	if err != nil {
 		if err == group.ErrGroupNotFound {
@@ -207,9 +206,7 @@ func (gr GroupResource) Get(ctx context.Context, r *http.Request) (int, interfac
 		}
 		panic(err)
 	}
-
 	members, err := g.ListMembers(mctx)
-
 	if err == iuser.ErrMethodNotSupported {
 		members = []group.Member{}
 	} else if err != nil {
@@ -263,7 +260,6 @@ func (gr GroupResource) Delete(ctx context.Context, r *http.Request) (int, inter
 	if groupname == "" {
 		return http.StatusBadRequest, "groupname not given"
 	}
-
 	mctx := getModelContext(ctx)
 	g, err := group.GetGroupByName(mctx, groupname)
 	if err != nil {
@@ -487,7 +483,6 @@ func (mr MemberResource) Delete(ctx context.Context, r *http.Request) (int, inte
 	case err != nil:
 		panic(err)
 	}
-
 	ub := getUserBackend(ctx)
 	u, err := ub.GetUserByName(username)
 	if g.GroupType == iuser.SSOLIBGROUP {

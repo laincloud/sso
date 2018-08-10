@@ -152,7 +152,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	s.Get("/api/users", "UsersList", s.UsersList)
 
-	s.Post("/api/resourcesdelete", "ResourcesDelete", s.ResourcesDelete)
+	s.Post("/api/resources/delete", "ResourcesDelete", s.ResourcesDelete)
 	s.Post("/api/rolemembers", "RoleMembers", s.RoleMembers)
 	s.Get("/api/batch-users", "BatchUsers", s.BatchUsers)
 
@@ -177,7 +177,6 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	s.AddRestfulResource("/api/applications", "Apply", Apply{})
 	s.AddRestfulResource("/api/applications/:application_id", "ApplicationHandle", ApplicationHandle{})
 	s.AddRestfulResource("/api/app_info", "AppInformation", AppInformation{})
-
 
 	puk, prk, err := loadCertAndKey(s.pubkeyfile, s.prikeyfile)
 	if err != nil {

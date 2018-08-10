@@ -4,7 +4,6 @@ import (
 	"testing"
 	"net/http"
 	"github.com/laincloud/sso/Godeps/_workspace/src/github.com/stretchr/testify/assert"
-	"github.com/laincloud/sso/ssolib/models/role"
 )
 
 func TestRolesResource_Get(t *testing.T) {
@@ -15,7 +14,7 @@ func TestRolesResource_Get(t *testing.T) {
 	createRole(th)
 	code ,resp := getRole(th)
 	assert.Equal(t, http.StatusOK, code)
-	a, ok := resp.([]role.Role)
+	a, ok := resp.([]RoleMembers)
 	assert.True(t, ok)
 	assert.Equal(t, 1, len(a))
 }

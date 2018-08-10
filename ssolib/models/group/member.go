@@ -439,10 +439,10 @@ func getAdminGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User) (map[
 		rawFathers := make([]int, 0, MAXREQUEST)
 		//when 1 < len <= MAXREQUEST, loop one time
 		for i := 0; ; i++ {
-			queue := make([]int, 0, MAXREQUEST)
 			offset := i * MAXREQUEST
 			remain := len(preQueue) - offset
 			if remain <= MAXREQUEST {
+				queue := make([]int, remain, MAXREQUEST)
 				copy(queue, preQueue[offset:offset + remain])
 				partFathers, err := ListAdminFathersOfGroups(ctx, queue)
 				if err != nil {
@@ -451,6 +451,7 @@ func getAdminGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User) (map[
 				rawFathers = append(rawFathers,partFathers...)
 				break
 			}
+			queue := make([]int, MAXREQUEST, MAXREQUEST)
 			copy(queue, preQueue[offset:offset + MAXREQUEST])
 			partFathers, err := ListAdminFathersOfGroups(ctx, queue)
 			if err != nil {
@@ -489,10 +490,10 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User) (map[int]M
 		rawFathers := make([]int, 0, MAXREQUEST)
 		//when 1 < len <= MAXREQUEST, loop one time
 		for i := 0; ; i++ {
-			queue := make([]int, 0, MAXREQUEST)
 			offset := i * MAXREQUEST
 			remain := len(preQueue) - offset
 			if remain <= MAXREQUEST {
+				queue := make([]int, remain, MAXREQUEST)
 				copy(queue, preQueue[offset:offset + remain])
 				partFathers, err := ListFathersOfGroups(ctx, queue)
 				if err != nil {
@@ -501,6 +502,7 @@ func getGroupsRecursivelyOfUser(ctx *models.Context, user iuser.User) (map[int]M
 				rawFathers = append(rawFathers,partFathers...)
 				break
 			}
+			queue := make([]int, MAXREQUEST, MAXREQUEST)
 			copy(queue, preQueue[offset:offset + MAXREQUEST])
 			partFathers, err := ListFathersOfGroups(ctx, queue)
 			if err != nil {
@@ -533,7 +535,6 @@ func GetRoleOfUser(mctx *models.Context, uId int, gId int) (MemberRole, error){
 	}
 	return Roles[0], nil
 }
-
 
 func CheckIfInGroup(ctx *models.Context, groupId int, uId int) (bool) {
 	users := []int{}

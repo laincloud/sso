@@ -156,6 +156,7 @@ func GetRole(ctx *models.Context, id int) (*Role, error) {
 	role := Role{}
 	err := ctx.DB.Get(&role, "SELECT * FROM role WHERE id=?", id)
 	if err == sql.ErrNoRows {
+		log.Debug(err)
 		return nil, ErrRoleNotFound
 	} else if err != nil {
 		return nil, err
@@ -163,11 +164,11 @@ func GetRole(ctx *models.Context, id int) (*Role, error) {
 	return &role, nil
 }
 
-func GetRoleIdByName(ctx *models.Context, Name string, appId int) (int, error) {
+func GetRoleIdByName(ctx *models.Context, name string, appId int) (int, error) {
 	roleIds := []int{}
-	err := ctx.DB.Get(&roleIds, "SELECT id FROM role WHERE name=? AND app_id=?", Name, appId)
+	err := ctx.DB.Select(&roleIds, "SELECT id FROM role WHERE name=? AND app_id=?", name, appId)
 	if err == sql.ErrNoRows {
-		return -1, nil
+		return -1, ErrRoleNotFound
 	} else if err != nil {
 		return -1, err
 	}

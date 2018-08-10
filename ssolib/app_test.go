@@ -16,15 +16,18 @@ func TestAppResource_Put(t *testing.T) {
 	t.Log(g)
 	code, resp := updateApp(th)
 	assert.Equal(t, http.StatusOK, code)
-	a, ok := resp.(app.App)
+	a, ok := resp.(*App)
 	assert.True(t, ok)
 	assert.Equal(t, "app2", a.FullName)
 }
 
 func updateApp(th *TestHelper) (int, interface{}){
-	r, _ := http.NewRequest("PUT", "http://sso.example.com/api/apps",
-		strings.NewReader(`{"id": 1, fullname": "app2", "redirect_uri": "https://example2.com"}`))
+	r, _ := http.NewRequest("PUT", "http://sso.example.com/api/app/1",
+		strings.NewReader(`{"fullname": "app2", "redirect_uri": "https://example2.com"}`))
 	th.T.Log(r)
+	aMock := mockParams(th, map[string]string{
+		"id":   "1"})
+	defer aMock.restore()
 	return AppResource{}.Put(th.Ctx, r)
 }
 

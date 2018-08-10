@@ -155,13 +155,10 @@ func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, in
 		}
 	} else {
 		theApp, err := app.GetApp(mctx, appId)
-		name = theApp.FullName
 		if err != nil {
-			return http.StatusInternalServerError, err
+			return http.StatusBadRequest, err
 		}
-		if theApp == nil {
-			return http.StatusBadRequest, "invaild app_id"
-		}
+		name = theApp.FullName
 		if theApp.GetSecret() != secret {
 			return http.StatusForbidden, "only the admin of the root role can create resource"
 		}
@@ -221,10 +218,7 @@ func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, inte
 	}
 	resource, err := role.GetResource(mctx, id)
 	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-	if resource == nil {
-		return http.StatusBadRequest, "resource id is invaild"
+		return http.StatusBadRequest, err
 	}
 	appId := resource.AppId
 	secret := r.Header.Get("secret")
@@ -242,10 +236,7 @@ func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, inte
 	} else {
 		theApp, err := app.GetApp(mctx, appId)
 		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-		if theApp == nil {
-			return http.StatusBadRequest, "invaild app_id"
+			return http.StatusBadRequest, err
 		}
 		if theApp.GetSecret() != secret {
 			return http.StatusForbidden, "only the admin of the root role can modify resource"
@@ -273,10 +264,7 @@ func (rr ResourceResource) Delete(ctx context.Context, r *http.Request) (int, in
 	}
 	resource, err := role.GetResource(mctx, id)
 	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-	if resource == nil {
-		return http.StatusBadRequest, "resource id is invaild"
+		return http.StatusBadRequest, err
 	}
 	appId := resource.AppId
 	secret := r.Header.Get("secret")
@@ -294,10 +282,7 @@ func (rr ResourceResource) Delete(ctx context.Context, r *http.Request) (int, in
 	} else {
 		theApp, err := app.GetApp(mctx, appId)
 		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-		if theApp == nil {
-			return http.StatusBadRequest, "invaild app_id"
+			return http.StatusBadRequest, err
 		}
 		if theApp.GetSecret() != secret {
 			return http.StatusForbidden, "only the admin member of the root role can delete resources"
