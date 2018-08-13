@@ -152,7 +152,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	s.Get("/api/users", "UsersList", s.UsersList)
 
-	s.Post("/api/resourcesdelete", "ResourcesDelete", s.ResourcesDelete)
+	s.Post("/api/resources/delete", "ResourcesDelete", s.ResourcesDelete)
 	s.Post("/api/rolemembers", "RoleMembers", s.RoleMembers)
 	s.Get("/api/batch-users", "BatchUsers", s.BatchUsers)
 
@@ -160,7 +160,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	s.AddRestfulResource("/api/users/:username", "UserResource", UserResource{})
 	s.AddRestfulResource("/api/me", "MeResource", MeResource{})
-	s.AddRestfulResource("/api/apps", "AppResource", AppResource{})
+	s.AddRestfulResource("/api/apps", "AppsResource", AppsResource{})
 	s.AddRestfulResource("/api/groups", "GroupsResource", GroupsResource{})
 	s.AddRestfulResource("/api/groups/:groupname", "GroupResource", GroupResource{})
 	s.AddRestfulResource("/api/groups/:groupname/members/:username",
@@ -173,6 +173,7 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 	s.AddRestfulResource("/api/roles/:id", "RoleResource", RoleResource{})
 	s.AddRestfulResource("/api/roles/:id/members/:username", "RoleMemberResource", RoleMemberResource{})
 	s.AddRestfulResource("/api/roles/:id/resources", "RoleResourceResource", RoleResourceResource{})
+
 
 	puk, prk, err := loadCertAndKey(s.pubkeyfile, s.prikeyfile)
 	if err != nil {
