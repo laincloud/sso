@@ -12,6 +12,7 @@ import (
 
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/iuser"
+	"time"
 )
 
 var (
@@ -92,94 +93,99 @@ func (bg *BackendGroup) Validate() error {
 
 // 登录的用户得到自己所在的 groups 列表
 func (gr GroupsResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "read:group", func(u iuser.User) (int, interface{}) {
-		mctx := getModelContext(ctx)
-		groups, err := group.GetGroupRolesOfUser(mctx, u)
-		if err != nil {
-			panic(err)
+	err := requireScope(ctx, "read:group")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	u := getCurrentUser(ctx)
+	mctx := getModelContext(ctx)
+	groups, err := group.GetGroupRolesOfUser(mctx, u)
+	if err != nil {
+		panic(err)
+	}
+	groupRoles := make([]GroupWithRole, len(groups))
+	for i, g := range groups {
+		role := "normal"
+		if g.Role == group.ADMIN {
+			role = "admin"
 		}
-		groupRoles := make([]GroupWithRole, len(groups))
-		for i, g := range groups {
-			role := "normal"
-			if g.Role == group.ADMIN {
-				role = "admin"
-			}
-			groupRoles[i] = GroupWithRole{
-				Name:     g.Name,
-				FullName: g.FullName,
-				Role:     role,
-			}
+		groupRoles[i] = GroupWithRole{
+			Name:     g.Name,
+			FullName: g.FullName,
+			Role:     role,
 		}
-		return http.StatusOK, groupRoles
-	})
+	}
+	return http.StatusOK, groupRoles
 }
 
 func (gr GroupsResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:group", func(u iuser.User) (int, interface{}) {
-		req := BackendGroup{}
-		if err := form.ParamBodyJson(r, &req); err != nil {
-			return http.StatusBadRequest, err
-		}
+	err := requireScope(ctx, "write:group")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	req := BackendGroup{}
+	if err := form.ParamBodyJson(r, &req); err != nil {
+		return http.StatusBadRequest, err
+	}
 
-		if err := req.Validate(); err != nil {
-			return http.StatusBadRequest, err
-		}
+	if err := req.Validate(); err != nil {
+		return http.StatusBadRequest, err
+	}
 
-		if req.FullName == "" {
-			req.FullName = req.Name
-		}
+	if req.FullName == "" {
+		req.FullName = req.Name
+	}
 
-		var ubg iuser.BackendWithGroup
-		var ok bool
-		if req.Backend == iuser.BACKENDGROUP {
-			ub := getUserBackend(ctx)
-			if ubg, ok = ub.(iuser.BackendWithGroup); ok {
-				// 注意 Rules 的唯一性
-				success, g, err := ubg.CreateBackendGroup(req.Name, req.Rules)
-				if !success {
-					if g != nil {
-						req.Name = g.GetName()
-						return http.StatusConflict, err
-					} else {
-						return http.StatusBadRequest, err
-					}
+	var ubg iuser.BackendWithGroup
+	var ok bool
+	if req.Backend == iuser.BACKENDGROUP {
+		ub := getUserBackend(ctx)
+		if ubg, ok = ub.(iuser.BackendWithGroup); ok {
+			// 注意 Rules 的唯一性
+			success, g, err := ubg.CreateBackendGroup(req.Name, req.Rules)
+			if !success {
+				if g != nil {
+					req.Name = g.GetName()
+					return http.StatusConflict, err
+				} else {
+					return http.StatusBadRequest, err
 				}
-			} else {
-				log.Debug("type assertion fails")
-				return http.StatusBadRequest, group.ErrBackendUnsupported
-			}
-		}
-
-		mctx := getModelContext(ctx)
-		g, err := group.CreateGroup(mctx, &group.Group{
-			Name:      req.Name,
-			FullName:  req.FullName,
-			GroupType: req.Backend,
-		})
-		if err != nil {
-			if mysqlError, ok := err.(*mysql.MySQLError); ok {
-				if mysqlError.Number == 1062 {
-					// for "Error 1062: Duplicate entry ..."
-					log.Info(err.Error())
-					return http.StatusConflict, "group already exists"
-				}
-			}
-			panic(err)
-		}
-
-		if req.Backend == iuser.SSOLIBGROUP {
-			if err = g.AddMember(mctx, getCurrentUser(ctx), group.ADMIN); err != nil {
-				panic(err)
-			}
-		} else if req.Backend == iuser.BACKENDGROUP {
-			if err = ubg.SetBackendGroupId(g.Name, g.Id); err != nil {
-				panic(err)
 			}
 		} else {
-			panic("check backend failed")
+			log.Debug("type assertion fails")
+			return http.StatusBadRequest, group.ErrBackendUnsupported
 		}
-		return http.StatusCreated, groupFromModel(g)
+	}
+
+	mctx := getModelContext(ctx)
+	g, err := group.CreateGroup(mctx, &group.Group{
+		Name:      req.Name,
+		FullName:  req.FullName,
+		GroupType: req.Backend,
 	})
+	if err != nil {
+		if mysqlError, ok := err.(*mysql.MySQLError); ok {
+			if mysqlError.Number == 1062 {
+				// for "Error 1062: Duplicate entry ..."
+				log.Info(err.Error())
+				return http.StatusConflict, "group already exists"
+			}
+		}
+		panic(err)
+	}
+
+	if req.Backend == iuser.SSOLIBGROUP {
+		if err = g.AddMember(mctx, getCurrentUser(ctx), group.ADMIN); err != nil {
+			panic(err)
+		}
+	} else if req.Backend == iuser.BACKENDGROUP {
+		if err = ubg.SetBackendGroupId(g.Name, g.Id); err != nil {
+			panic(err)
+		}
+	} else {
+		panic("check backend failed")
+	}
+	return http.StatusCreated, groupFromModel(g)
 }
 
 type GroupResource struct {
@@ -193,7 +199,6 @@ func (gr GroupResource) Get(ctx context.Context, r *http.Request) (int, interfac
 	}
 
 	mctx := getModelContext(ctx)
-
 	g, err := group.GetGroupByName(mctx, groupname)
 	if err != nil {
 		if err == group.ErrGroupNotFound {
@@ -201,9 +206,7 @@ func (gr GroupResource) Get(ctx context.Context, r *http.Request) (int, interfac
 		}
 		panic(err)
 	}
-
 	members, err := g.ListMembers(mctx)
-
 	if err == iuser.ErrMethodNotSupported {
 		members = []group.Member{}
 	} else if err != nil {
@@ -248,58 +251,58 @@ func (gr GroupResource) Get(ctx context.Context, r *http.Request) (int, interfac
 }
 
 func (gr GroupResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:group", func(currentUser iuser.User) (int, interface{}) {
-		groupname := params(ctx, "groupname")
-		if groupname == "" {
-			return http.StatusBadRequest, "groupname not given"
+	err := requireScope(ctx, "write:group")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	currentUser := getCurrentUser(ctx)
+	groupname := params(ctx, "groupname")
+	if groupname == "" {
+		return http.StatusBadRequest, "groupname not given"
+	}
+	mctx := getModelContext(ctx)
+	g, err := group.GetGroupByName(mctx, groupname)
+	if err != nil {
+		if err == group.ErrGroupNotFound {
+			return http.StatusNotFound, "No such group"
 		}
-
-		mctx := getModelContext(ctx)
-
-		g, err := group.GetGroupByName(mctx, groupname)
+		panic(err)
+	}
+	if g.GroupType == iuser.SSOLIBGROUP {
+		ok, role, err := g.GetMember(mctx, currentUser)
 		if err != nil {
-			if err == group.ErrGroupNotFound {
-				return http.StatusNotFound, "No such group"
-			}
 			panic(err)
 		}
 
-		if g.GroupType == iuser.SSOLIBGROUP {
-			ok, role, err := g.GetMember(mctx, currentUser)
+		if !(ok && role == group.ADMIN) {
+			return http.StatusForbidden, "Not group admin"
+		}
+
+		if err = group.DeleteGroup(mctx, g); err != nil {
+			panic(err)
+		}
+
+	} else if g.GroupType == iuser.BACKENDGROUP {
+		ub := getUserBackend(ctx)
+		if ubg, ok := ub.(iuser.BackendWithGroup); !ok {
+			return http.StatusBadRequest, group.ErrBackendUnsupported
+		} else {
+			backendGroup, err := ubg.GetBackendGroup(g.Id)
 			if err != nil {
 				panic(err)
 			}
-
-			if !(ok && role == group.ADMIN) {
-				return http.StatusForbidden, "Not group admin"
-			}
-
-			if err = group.DeleteGroup(mctx, g); err != nil {
-				panic(err)
-			}
-
-		} else if g.GroupType == iuser.BACKENDGROUP {
-			ub := getUserBackend(ctx)
-			if ubg, ok := ub.(iuser.BackendWithGroup); !ok {
-				return http.StatusBadRequest, group.ErrBackendUnsupported
+			if err := ubg.DeleteBackendGroup(backendGroup); err != nil {
+				return http.StatusBadRequest, err
 			} else {
-				backendGroup, err := ubg.GetBackendGroup(g.Id)
-				if err != nil {
+				if err = group.DeleteGroup(mctx, g); err != nil {
 					panic(err)
 				}
-				if err := ubg.DeleteBackendGroup(backendGroup); err != nil {
-					return http.StatusBadRequest, err
-				} else {
-					if err = group.DeleteGroup(mctx, g); err != nil {
-						panic(err)
-					}
-				}
 			}
-		} else {
-			panic("here")
 		}
-		return http.StatusNoContent, "Group deleted"
-	})
+	} else {
+		panic("here")
+	}
+	return http.StatusNoContent, "Group deleted"
 }
 
 type MemberResource struct {
@@ -307,6 +310,7 @@ type MemberResource struct {
 }
 
 func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
+	t1 := time.Now()
 	groupname := params(ctx, "groupname")
 	if groupname == "" {
 		return http.StatusBadRequest, "no groupname given"
@@ -317,8 +321,9 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 	}
 
 	mctx := getModelContext(ctx)
-
 	g, err := group.GetGroupByName(mctx, groupname)
+	t2 := time.Now()
+	log.Debug(t2.Sub(t1))
 	switch {
 	case err == group.ErrGroupNotFound:
 		return http.StatusNotFound, "no such group"
@@ -327,10 +332,10 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 	}
 
 	ub := getUserBackend(ctx)
-	u, uerr := ub.GetUserByName(username)
+	u, err := ub.GetUserByName(username)
 	if g.GroupType == iuser.SSOLIBGROUP {
 
-		if uerr != nil {
+		if err != nil {
 			return http.StatusNotFound, "no such username"
 		}
 
@@ -353,7 +358,6 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 			}
 			return http.StatusNotFound, "no such member"
 		}
-
 	} else if g.GroupType == iuser.BACKENDGROUP {
 		return http.StatusBadRequest, group.ErrBackendUnsupported
 	} else {
@@ -363,164 +367,160 @@ func (mr MemberResource) Get(ctx context.Context, r *http.Request) (int, interfa
 }
 
 func (mr MemberResource) Put(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:group", func(currentUser iuser.User) (int, interface{}) {
-		groupname := params(ctx, "groupname")
-		if groupname == "" {
-			return http.StatusBadRequest, "no groupname given"
-		}
-		username := params(ctx, "username")
-		if username == "" {
-			return http.StatusBadRequest, "no username given"
-		}
+	err := requireScope(ctx, "write:group")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	groupname := params(ctx, "groupname")
+	if groupname == "" {
+		return http.StatusBadRequest, "no groupname given"
+	}
+	username := params(ctx, "username")
+	if username == "" {
+		return http.StatusBadRequest, "no username given"
+	}
+	role := MemberRole{}
+	if err := form.ParamBodyJson(r, &role); err != nil {
+		return http.StatusBadRequest, err
+	}
 
-		role := MemberRole{}
-		if err := form.ParamBodyJson(r, &role); err != nil {
-			return http.StatusBadRequest, err
-		}
-
-		var mrole group.MemberRole
-		if role.Role == "admin" {
-			mrole = group.ADMIN
-		} else if role.Role == "normal" || role.Role == "" {
-			mrole = group.NORMAL
-		} else {
-			return http.StatusBadRequest, "unknown role"
-		}
-
-		mctx := getModelContext(ctx)
-
-		g, err := group.GetGroupByName(mctx, groupname)
-		switch {
-		case err == group.ErrGroupNotFound:
-			return http.StatusNotFound, "no such group"
-		case err != nil:
+	var mrole group.MemberRole
+	if role.Role == "admin" {
+		mrole = group.ADMIN
+	} else if role.Role == "normal" || role.Role == "" {
+		mrole = group.NORMAL
+	} else {
+		return http.StatusBadRequest, "unknown role"
+	}
+	mctx := getModelContext(ctx)
+	g, err := group.GetGroupByName(mctx, groupname)
+	switch {
+	case err == group.ErrGroupNotFound:
+		return http.StatusNotFound, "no such group"
+	case err != nil:
+		panic(err)
+	}
+	ub := getUserBackend(ctx)
+	u, uerr := ub.GetUserByName(username)
+	if g.GroupType == iuser.SSOLIBGROUP {
+		ok, currentUserRole, err := g.GetMember(mctx, getCurrentUser(ctx))
+		if err != nil {
 			panic(err)
 		}
+		if !(ok && currentUserRole == group.ADMIN) {
+			return http.StatusForbidden, "Not group admin"
+		}
+		if uerr != nil {
+			return http.StatusNotFound, "no such username"
+		}
 
-		ub := getUserBackend(ctx)
-		u, uerr := ub.GetUserByName(username)
-
-		if g.GroupType == iuser.SSOLIBGROUP {
-			ok, currentUserRole, err := g.GetMember(mctx, currentUser)
-			if err != nil {
-				panic(err)
-			}
-			if !(ok && currentUserRole == group.ADMIN) {
-				return http.StatusForbidden, "Not group admin"
-			}
-
-			if uerr != nil {
-				return http.StatusNotFound, "no such username"
-			}
-
-			directMembers, err := g.ListMembers(mctx)
-			if err != nil {
-				panic(err)
-			}
-			isAlreadyMember := false
-			for _, m := range directMembers {
-				if m.GetId() == u.GetId() {
-					isAlreadyMember = true
-					if m.Role != mrole {
-						if err := g.UpdateMember(mctx, u, mrole); err != nil {
-							panic(err)
-						}
-					}
-					break
-				}
-			}
-			if !isAlreadyMember {
-				if err := g.AddMember(mctx, u, mrole); err != nil {
-					panic(err)
-				}
-
-			}
-		} else if g.GroupType == iuser.BACKENDGROUP {
-			if ubg, ok := ub.(iuser.BackendWithGroup); ok {
-				backendGroup, err := ubg.GetBackendGroup(g.Id)
-				if err != nil {
-					panic(err)
-				}
-				err = backendGroup.AddUser(u)
-				if err != nil {
-					if err == iuser.ErrMethodNotSupported {
-						return http.StatusBadRequest, err
-					} else {
+		directMembers, err := g.ListMembers(mctx)
+		if err != nil {
+			panic(err)
+		}
+		isAlreadyMember := false
+		for _, m := range directMembers {
+			if m.GetId() == u.GetId() {
+				isAlreadyMember = true
+				if m.Role != mrole {
+					if err := g.UpdateMember(mctx, u, mrole); err != nil {
 						panic(err)
 					}
 				}
-			} else {
-				panic(group.ErrBackendUnsupported)
+				break
+			}
+		}
+		if !isAlreadyMember {
+			if err := g.AddMember(mctx, u, mrole); err != nil {
+				panic(err)
+			}
+
+		}
+	} else if g.GroupType == iuser.BACKENDGROUP {
+		if ubg, ok := ub.(iuser.BackendWithGroup); ok {
+			backendGroup, err := ubg.GetBackendGroup(g.Id)
+			if err != nil {
+				panic(err)
+			}
+			err = backendGroup.AddUser(u)
+			if err != nil {
+				if err == iuser.ErrMethodNotSupported {
+					return http.StatusBadRequest, err
+				} else {
+					panic(err)
+				}
 			}
 		} else {
-			panic("Unexpected group type")
+			panic(group.ErrBackendUnsupported)
 		}
-		return http.StatusOK, "member added"
-	})
+	} else {
+		panic("Unexpected group type")
+	}
+	return http.StatusOK, "member added"
 }
 
 func (mr MemberResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:group", func(currentUser iuser.User) (int, interface{}) {
-		groupname := params(ctx, "groupname")
-		if groupname == "" {
-			return http.StatusBadRequest, "no groupname given"
-		}
-		username := params(ctx, "username")
-		if username == "" {
-			return http.StatusBadRequest, "no username given"
-		}
+	err := requireScope(ctx, "write:group")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	groupname := params(ctx, "groupname")
+	if groupname == "" {
+		return http.StatusBadRequest, "no groupname given"
+	}
+	username := params(ctx, "username")
+	if username == "" {
+		return http.StatusBadRequest, "no username given"
+	}
 
-		mctx := getModelContext(ctx)
+	mctx := getModelContext(ctx)
+	g, err := group.GetGroupByName(mctx, groupname)
+	switch {
+	case err == group.ErrGroupNotFound:
+		return http.StatusNotFound, "no such group"
+	case err != nil:
+		panic(err)
+	}
+	ub := getUserBackend(ctx)
+	u, uerr := ub.GetUserByName(username)
 
-		g, err := group.GetGroupByName(mctx, groupname)
-		switch {
-		case err == group.ErrGroupNotFound:
-			return http.StatusNotFound, "no such group"
-		case err != nil:
+	if g.GroupType == iuser.SSOLIBGROUP {
+		ok, currentUserRole, err := g.GetMember(mctx, getCurrentUser(ctx))
+		if err != nil {
 			panic(err)
 		}
+		if !(ok && currentUserRole == group.ADMIN) {
+			return http.StatusForbidden, "Not group admin"
+		}
 
-		ub := getUserBackend(ctx)
-		u, uerr := ub.GetUserByName(username)
+		if uerr != nil {
+			return http.StatusNotFound, "no such username"
+		}
 
-		if g.GroupType == iuser.SSOLIBGROUP {
-			ok, currentUserRole, err := g.GetMember(mctx, currentUser)
+		if err := g.RemoveMember(mctx, u); err != nil {
+			panic(err)
+		}
+	} else if g.GroupType == iuser.BACKENDGROUP {
+		if ubg, ok := ub.(iuser.BackendWithGroup); ok {
+			backendGroup, err := ubg.GetBackendGroup(g.Id)
 			if err != nil {
 				panic(err)
 			}
-			if !(ok && currentUserRole == group.ADMIN) {
-				return http.StatusForbidden, "Not group admin"
-			}
-
-			if uerr != nil {
-				return http.StatusNotFound, "no such username"
-			}
-
-			if err := g.RemoveMember(mctx, u); err != nil {
-				panic(err)
-			}
-		} else if g.GroupType == iuser.BACKENDGROUP {
-			if ubg, ok := ub.(iuser.BackendWithGroup); ok {
-				backendGroup, err := ubg.GetBackendGroup(g.Id)
-				if err != nil {
+			err = backendGroup.RemoveUser(u)
+			if err != nil {
+				if err == iuser.ErrMethodNotSupported {
+					return http.StatusBadRequest, err
+				} else {
 					panic(err)
 				}
-				err = backendGroup.RemoveUser(u)
-				if err != nil {
-					if err == iuser.ErrMethodNotSupported {
-						return http.StatusBadRequest, err
-					} else {
-						panic(err)
-					}
-				}
-			} else {
-				panic(group.ErrBackendUnsupported)
 			}
 		} else {
-			panic("Unexpected group type")
+			panic(group.ErrBackendUnsupported)
 		}
-		return http.StatusNoContent, "member deleted"
-	})
+	} else {
+		panic("Unexpected group type")
+	}
+	return http.StatusNoContent, "member deleted"
 }
 
 type GroupMemberResource struct {
@@ -529,142 +529,131 @@ type GroupMemberResource struct {
 
 func (gmr GroupMemberResource) Put(ctx context.Context, r *http.Request) (int, interface{}) {
 	log.Debug("Put group member")
-	return requireScope(ctx, "write:group", func(currentUser iuser.User) (int, interface{}) {
-		groupname := params(ctx, "groupname")
-		if groupname == "" {
-			return http.StatusBadRequest, "no groupname given"
-		}
-		sonname := params(ctx, "sonname")
-		if sonname == "" {
-			return http.StatusBadRequest, "no sub group name given"
-		}
-
-		role := MemberRole{}
-		if err := form.ParamBodyJson(r, &role); err != nil {
-			return http.StatusBadRequest, err
-		}
-
-		var mrole group.MemberRole
-		if role.Role == "admin" {
-			mrole = group.ADMIN
-		} else if role.Role == "normal" || role.Role == "" {
-			mrole = group.NORMAL
-		} else {
-			return http.StatusBadRequest, "unknown role"
-		}
-
-		mctx := getModelContext(ctx)
-
-		g, err := group.GetGroupByName(mctx, groupname)
-		switch {
-		case err == group.ErrGroupNotFound:
-			return http.StatusNotFound, "no such group"
-		case err != nil:
+	err := requireScope(ctx, "write:group")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	groupname := params(ctx, "groupname")
+	if groupname == "" {
+		return http.StatusBadRequest, "no groupname given"
+	}
+	sonname := params(ctx, "sonname")
+	if sonname == "" {
+		return http.StatusBadRequest, "no sub group name given"
+	}
+	role := MemberRole{}
+	if err := form.ParamBodyJson(r, &role); err != nil {
+		return http.StatusBadRequest, err
+	}
+	var mrole group.MemberRole
+	if role.Role == "admin" {
+		mrole = group.ADMIN
+	} else if role.Role == "normal" || role.Role == "" {
+		mrole = group.NORMAL
+	} else {
+		return http.StatusBadRequest, "unknown role"
+	}
+	mctx := getModelContext(ctx)
+	g, err := group.GetGroupByName(mctx, groupname)
+	switch {
+	case err == group.ErrGroupNotFound:
+		return http.StatusNotFound, "no such group"
+	case err != nil:
+		panic(err)
+	}
+	gson, gerr := group.GetGroupByName(mctx, sonname)
+	if g.GroupType == iuser.SSOLIBGROUP {
+		ok, currentUserRole, err := g.GetMember(mctx, getCurrentUser(ctx))
+		if err != nil {
 			panic(err)
 		}
-
-		gson, gerr := group.GetGroupByName(mctx, sonname)
-
-		if g.GroupType == iuser.SSOLIBGROUP {
-			ok, currentUserRole, err := g.GetMember(mctx, currentUser)
-			if err != nil {
-				panic(err)
-			}
-			if !(ok && currentUserRole == group.ADMIN) {
-				return http.StatusForbidden, "Not group admin"
-			}
-
-			switch {
-			case gerr == group.ErrGroupNotFound:
-				return http.StatusNotFound, "no such sub group"
-			case gerr != nil:
-				panic(err)
-			}
-
-			addingGroupRole, err := group.GetGroupMemberRole(mctx, g.Id, gson.Id)
-			log.Debug(addingGroupRole, err)
-			if err == nil {
-				if addingGroupRole != mrole {
-					log.Debug("update group role,", addingGroupRole, mrole)
-					if err := g.UpdateGroupMemberRole(mctx, gson, mrole); err != nil {
-						panic(err)
-					}
-				}
-			} else {
-				if err != sql.ErrNoRows {
-					panic(err)
-				}
-				if err := g.AddGroupMember(mctx, gson, mrole); err != nil {
-					if err == group.ErrGroupIncludingFailed || err == group.ErrNestedGroupUnsupported {
-						return http.StatusBadRequest, err
-					}
-					panic(err)
-				}
-			}
-		} else if g.GroupType == iuser.BACKENDGROUP {
-			return http.StatusBadRequest, "backend group is atomic"
-		} else {
-			panic("Unexpected group type")
+		if !(ok && currentUserRole == group.ADMIN) {
+			return http.StatusForbidden, "Not group admin"
 		}
-		return http.StatusOK, "group member added"
-	})
+		switch {
+		case gerr == group.ErrGroupNotFound:
+			return http.StatusNotFound, "no such sub group"
+		case gerr != nil:
+			panic(err)
+		}
+		addingGroupRole, err := group.GetGroupMemberRole(mctx, g.Id, gson.Id)
+		log.Debug(addingGroupRole, err)
+		if err == nil {
+			if addingGroupRole != mrole {
+				log.Debug("update group role,", addingGroupRole, mrole)
+				if err := g.UpdateGroupMemberRole(mctx, gson, mrole); err != nil {
+					panic(err)
+				}
+			}
+		} else {
+			if err != sql.ErrNoRows {
+				panic(err)
+			}
+			if err := g.AddGroupMember(mctx, gson, mrole); err != nil {
+				if err == group.ErrGroupIncludingFailed || err == group.ErrNestedGroupUnsupported {
+					return http.StatusBadRequest, err
+				}
+				panic(err)
+			}
+		}
+	} else if g.GroupType == iuser.BACKENDGROUP {
+		return http.StatusBadRequest, "backend group is atomic"
+	} else {
+		panic("Unexpected group type")
+	}
+	return http.StatusOK, "group member added"
 
 }
 
 func (gmr GroupMemberResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
-	log.Debug("Delete group member")
-	return requireScope(ctx, "write:group", func(currentUser iuser.User) (int, interface{}) {
-		groupname := params(ctx, "groupname")
-		if groupname == "" {
-			return http.StatusBadRequest, "no groupname given"
-		}
-		sonname := params(ctx, "sonname")
-		if sonname == "" {
-			return http.StatusBadRequest, "no sub group name given"
-		}
-
-		mctx := getModelContext(ctx)
-
-		g, err := group.GetGroupByName(mctx, groupname)
-		switch {
-		case err == group.ErrGroupNotFound:
-			return http.StatusNotFound, "no such group"
-		case err != nil:
+	err := requireScope(ctx, "write:group")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	groupname := params(ctx, "groupname")
+	if groupname == "" {
+		return http.StatusBadRequest, "no groupname given"
+	}
+	sonname := params(ctx, "sonname")
+	if sonname == "" {
+		return http.StatusBadRequest, "no sub group name given"
+	}
+	mctx := getModelContext(ctx)
+	g, err := group.GetGroupByName(mctx, groupname)
+	switch {
+	case err == group.ErrGroupNotFound:
+		return http.StatusNotFound, "no such group"
+	case err != nil:
+		panic(err)
+	}
+	gson, gerr := group.GetGroupByName(mctx, sonname)
+	if g.GroupType == iuser.SSOLIBGROUP {
+		ok, currentUserRole, err := g.GetMember(mctx, getCurrentUser(ctx))
+		if err != nil {
 			panic(err)
 		}
-
-		gson, gerr := group.GetGroupByName(mctx, sonname)
-
-		if g.GroupType == iuser.SSOLIBGROUP {
-			ok, currentUserRole, err := g.GetMember(mctx, currentUser)
-			if err != nil {
-				panic(err)
-			}
-			if !(ok && currentUserRole == group.ADMIN) {
-				return http.StatusForbidden, "Not group admin"
-			}
-
-			switch {
-			case gerr == group.ErrGroupNotFound:
-				return http.StatusNotFound, "no such sub group"
-			case gerr != nil:
-				panic(err)
-			}
-
-			if _, err := group.GetGroupMemberRole(mctx, g.Id, gson.Id); err == nil {
-				if err := g.RemoveGroupMember(mctx, gson); err != nil {
-					panic(err)
-				}
-			} else {
-				if err != sql.ErrNoRows {
-					panic(err)
-				}
-			}
-		} else if g.GroupType == iuser.BACKENDGROUP {
-			return http.StatusBadRequest, "backend group is atomic"
-		} else {
-			panic("Unexpected group type")
+		if !(ok && currentUserRole == group.ADMIN) {
+			return http.StatusForbidden, "Not group admin"
 		}
-		return http.StatusNoContent, "group member deleted"
-	})
+		switch {
+		case gerr == group.ErrGroupNotFound:
+			return http.StatusNotFound, "no such sub group"
+		case gerr != nil:
+			panic(err)
+		}
+		if _, err := group.GetGroupMemberRole(mctx, g.Id, gson.Id); err == nil {
+			if err := g.RemoveGroupMember(mctx, gson); err != nil {
+				panic(err)
+			}
+		} else {
+			if err != sql.ErrNoRows {
+				panic(err)
+			}
+		}
+	} else if g.GroupType == iuser.BACKENDGROUP {
+		return http.StatusBadRequest, "backend group is atomic"
+	} else {
+		panic("Unexpected group type")
+	}
+	return http.StatusNoContent, "group member deleted"
 }
