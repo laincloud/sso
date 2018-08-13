@@ -34,16 +34,11 @@ func DeleteAppRole(ctx *models.Context, appId int) (*app.App, error) {
 }
 
 func SetAppRole(ctx *models.Context, roleId int, appId int) (*app.App, error) {
-	tx := ctx.DB.MustBegin()
-	_, err1 := tx.Exec(
+	_, err := ctx.DB.Exec(
 		"UPDATE app SET admin_role_id=? WHERE id=?",
 		roleId, appId)
-	err2 := tx.Commit()
-	if err1 != nil {
-		return nil, err1
-	}
-	if err2 != nil {
-		return nil, err2
+	if err != nil {
+		return nil, err
 	}
 	return app.GetApp(ctx, appId)
 }
