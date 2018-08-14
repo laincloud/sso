@@ -152,7 +152,6 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	s.Get("/api/users", "UsersList", s.UsersList)
 
-	s.Post("/api/resourcesdelete", "ResourcesDelete", s.ResourcesDelete)
 	s.Post("/api/rolemembers", "RoleMembers", s.RoleMembers)
 	s.Get("/api/batch-users", "BatchUsers", s.BatchUsers)
 
@@ -160,19 +159,24 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 
 	s.AddRestfulResource("/api/users/:username", "UserResource", UserResource{})
 	s.AddRestfulResource("/api/me", "MeResource", MeResource{})
-	s.AddRestfulResource("/api/apps", "AppResource", AppResource{})
+	s.AddRestfulResource("/api/apps", "AppsResource", AppsResource{})
+	s.AddRestfulResource("/api/apps/:id", "AppResource", AppResource{})
 	s.AddRestfulResource("/api/groups", "GroupsResource", GroupsResource{})
 	s.AddRestfulResource("/api/groups/:groupname", "GroupResource", GroupResource{})
 	s.AddRestfulResource("/api/groups/:groupname/members/:username",
 		"MemberResource", MemberResource{})
 	s.AddRestfulResource("/api/groups/:groupname/group-members/:sonname", "GroupMemberResource", GroupMemberResource{})
 	s.AddRestfulResource("/api/app_roles", "AppRoleResource", AppRoleResource{})
-	s.AddRestfulResource("/api/resources/:id", "ResourceResource", ResourceResource{})
-	s.AddRestfulResource("/api/resources", "ResourcesResource", ResourcesResource{})
+	s.AddRestfulResource("/api/Resources/:id", "ResourceResource", ResourceResource{})
+	s.AddRestfulResource("/api/Resources", "ResourcesResource", ResourcesResource{})
 	s.AddRestfulResource("/api/roles", "RolesResource", RolesResource{})
 	s.AddRestfulResource("/api/roles/:id", "RoleResource", RoleResource{})
 	s.AddRestfulResource("/api/roles/:id/members/:username", "RoleMemberResource", RoleMemberResource{})
-	s.AddRestfulResource("/api/roles/:id/resources", "RoleResourceResource", RoleResourceResource{})
+	s.AddRestfulResource("/api/roles/:id/Resources", "RoleResourceResource", RoleResourceResource{})
+	s.AddRestfulResource("/api/applications", "Apply", Apply{})
+	s.AddRestfulResource("/api/applications/:application_id", "ApplicationHandle", ApplicationHandle{})
+	s.AddRestfulResource("/api/app_info", "AppInformation", AppInformation{})
+
 
 	puk, prk, err := loadCertAndKey(s.pubkeyfile, s.prikeyfile)
 	if err != nil {
