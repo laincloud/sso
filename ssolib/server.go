@@ -167,12 +167,16 @@ func (s *Server) ListenAndServe(addr string, addHandlers AddHandles) error {
 		"MemberResource", MemberResource{})
 	s.AddRestfulResource("/api/groups/:groupname/group-members/:sonname", "GroupMemberResource", GroupMemberResource{})
 	s.AddRestfulResource("/api/app_roles", "AppRoleResource", AppRoleResource{})
-	s.AddRestfulResource("/api/resources/:id", "ResourceResource", ResourceResource{})
-	s.AddRestfulResource("/api/resources", "ResourcesResource", ResourcesResource{})
+	s.AddRestfulResource("/api/Resources/:id", "ResourceResource", ResourceResource{})
+	s.AddRestfulResource("/api/Resources", "ResourcesResource", ResourcesResource{})
 	s.AddRestfulResource("/api/roles", "RolesResource", RolesResource{})
 	s.AddRestfulResource("/api/roles/:id", "RoleResource", RoleResource{})
 	s.AddRestfulResource("/api/roles/:id/members/:username", "RoleMemberResource", RoleMemberResource{})
+<<<<<<< HEAD
 	s.AddRestfulResource("/api/roles/:id/resources", "RoleResourceResource", RoleResourceResource{})
+=======
+	s.AddRestfulResource("/api/roles/:id/Resources", "RoleResourceResource", RoleResourceResource{})
+>>>>>>> testapis
 	s.AddRestfulResource("/api/applications", "Apply", Apply{})
 	s.AddRestfulResource("/api/applications/:application_id", "ApplicationHandle", ApplicationHandle{})
 	s.AddRestfulResource("/api/app_info", "AppInformation", AppInformation{})

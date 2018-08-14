@@ -105,9 +105,7 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 		case "raw":
 			{
 				rs, err := role.GetAllResources(mctx, appId)
-				log.Debug(rs, err)
 				if err != nil {
-					panic(err)
 					return http.StatusBadRequest, err
 				}
 				return http.StatusOK, rs
@@ -119,12 +117,12 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 	}
 }
 
-type Resources struct {
-	resources []Resource `json:"resources"`
+type ResourcesArray struct {
+	Resources []Resource `json:"resources"`
 }
 
 func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-	resourceReqs := Resources{}
+	resourceReqs := ResourcesArray{}
 	if err := form.ParamBodyJson(r, &resourceReqs); err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -164,6 +162,9 @@ func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, in
 			return http.StatusForbidden, "only the admin of the root role can modify resource"
 		}
 	}
+	if len(resourceReqs.Resources) < 1 {
+		return http.StatusBadRequest, "enter at least one resource"
+	}
 	switch action {
 	case "add": {
 		if secret != "" {
@@ -171,37 +172,37 @@ func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, in
 		} else {
 			name = theApp.FullName
 		}
-		newResources := parseAddResource(&resourceReqs.resources, appId, name)
+		newResources := parseAddResource(&resourceReqs.Resources, appId, name)
 		err := role.CreateResources(mctx, newResources)
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		return http.StatusOK, "add resources successfully"
+		return http.StatusOK, "add Resources successfully"
 		}
 	case "update": {
-		if !checkIfResourcesInOneApp(mctx, &resourceReqs.resources) {
+		if !checkIfResourcesInOneApp(mctx, &resourceReqs.Resources) {
 			return http.StatusBadRequest, "invaild resource ids"
 		}
-		newResources := parseUpdateResource(&resourceReqs.resources)
+		newResources := parseUpdateResource(&resourceReqs.Resources)
 		err := role.UpdateResources(mctx, newResources)
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		return http.StatusOK, "update resources successfully"
+		return http.StatusOK, "update Resources successfully"
 	}
 	case "delete": {
-		if !checkIfResourcesInOneApp(mctx, &resourceReqs.resources) {
+		if !checkIfResourcesInOneApp(mctx, &resourceReqs.Resources) {
 			return http.StatusBadRequest, "invaild resource ids"
 		}
 		ids := []int{}
-		for _,resourceReq := range resourceReqs.resources {
+		for _,resourceReq := range resourceReqs.Resources {
 			ids = append(ids, resourceReq.Id)
 		}
 		err := role.DeleteResources(mctx, ids)
 		if err != nil {
 			return http.StatusUnauthorized, err
 		}
-		return http.StatusNoContent, "delete resources successfully"
+		return http.StatusNoContent, "delete Resources successfully"
 	}
 	default:
 		return http.StatusBadRequest, "action should be add, delete or update"
@@ -221,11 +222,11 @@ func checkIfResourcesInOneApp(mctx *models.Context, resourcesReq *[]Resource) bo
 	if len(*resourcesReq) < 1 {
 		return false
 	}
-	//all resources must exist
+	//all Resources must exist
 	if len(resources) != len(*resourcesReq) {
 		return false
 	}
-	// check if the resources belong to the app
+	// check if the Resources belong to the app
 	appId := resources[0].Id
 	for _, resource := range resources {
 		if resource.AppId != appId {
@@ -364,7 +365,7 @@ func (rr ResourceResource) Delete(ctx context.Context, r *http.Request) (int, in
 		u := getCurrentUser(ctx)
 		ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
 		if !(ok && mType == group.ADMIN) {
-			return http.StatusForbidden, "only the admin member of the root role can delete resources"
+			return http.StatusForbidden, "only the admin member of the root role can delete Resources"
 		}
 	} else {
 		theApp, err := app.GetApp(mctx, appId)
@@ -372,7 +373,7 @@ func (rr ResourceResource) Delete(ctx context.Context, r *http.Request) (int, in
 			return http.StatusBadRequest, err
 		}
 		if theApp.GetSecret() != secret {
-			return http.StatusForbidden, "only the admin member of the root role can delete resources"
+			return http.StatusForbidden, "only the admin member of the root role can delete Resources"
 		}
 	}
 	err = role.DeleteResource(mctx, id)
@@ -393,9 +394,7 @@ type RoleResourceReq struct {
 }
 
 func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
-
 	mctx := getModelContext(ctx)
-
 	roleId := params(ctx, "id")
 	if roleId == "" {
 		return http.StatusBadRequest, "role id required"
@@ -426,7 +425,7 @@ func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int,
 		u := getCurrentUser(ctx)
 		ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
 		if !(ok && mType == group.ADMIN) {
-			return http.StatusForbidden, "only the admin member of the root role can delete resources"
+			return http.StatusForbidden, "only the admin member of the root role can delete Resources"
 		}
 	} else {
 		theApp, err := app.GetApp(mctx, appId)
@@ -434,7 +433,7 @@ func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int,
 			return http.StatusBadRequest, err
 		}
 		if theApp.GetSecret() != secret {
-			return http.StatusForbidden, "only the admin member of the root role can delete resources"
+			return http.StatusForbidden, "only the admin member of the root role can delete Resources"
 		}
 	}
 	resources, err := role.GetAllResources(mctx, modifyRole.AppId)

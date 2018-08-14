@@ -19,7 +19,7 @@ import (
 	"errors"
 )
 
-
+var ErrorIntervalServer = errors.New("intervalServerError")
 
 type Apply struct {
 	server.BaseResource
@@ -261,10 +261,10 @@ func createApplicationForRole(ctx context.Context, req Application) (int, interf
 		}
 		roleId, err := role.GetRoleIdByName(mctx, req.Target[i].Name, appId)
 		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-		if roleId < 0 {
-			return http.StatusBadRequest, "invaild role_name"
+			if err == role.ErrRoleNotFound {
+				return http.StatusBadRequest, err
+			}
+			return http.StatusBadRequest, err
 		}
 		_, err = group.GetGroup(mctx, roleId)
 		if err != nil {
@@ -351,12 +351,15 @@ func getTargetGroup(mctx *models.Context, targetType string, currentApp *applica
 		appId := currentApp.TargetContent.AppId
 		roleName := currentApp.TargetContent.Name
 		roleId, err := role.GetRoleIdByName(mctx, roleName, appId)
-		if err != nil {
-			return nil, errors.New("invaild role_name")
+		if err != nil{
+			if err == role.ErrRoleNotFound {
+				return nil, role.ErrRoleNotFound
+			}
+			return nil, ErrorIntervalServer
 		}
 		targetGroup, err = group.GetGroup(mctx, roleId)
 		if err != nil {
-			return nil, errors.New("group doesn't exist")
+			return nil, group.ErrGroupNotFound
 		}
 	}
 	return targetGroup, nil
@@ -403,6 +406,9 @@ func (ah ApplicationHandle) Post(ctx context.Context, r *http.Request) (int, int
 		{
 			targetGroup, err := getTargetGroup(mctx, targetType, currentApp)
 			if err != nil {
+				if err == ErrorIntervalServer {
+					return http.StatusInternalServerError, err
+				}
 				return http.StatusBadRequest, err
 			}
 			commitRole, err := group.GetRoleOfUser(mctx, currentUser.GetId(), targetGroup.Id)

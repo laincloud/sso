@@ -246,7 +246,7 @@ type RoleMembers struct {
 	Members []RoleMember `json:"members"`
 }
 
-func GetRolesOfApp(mctx *models.Context, appId int) (int, interface{}) {
+func getRolesOfApp(mctx *models.Context, appId int) (int, interface{}) {
 	_, err := app.GetApp(mctx, appId)
 	if err != nil {
 		return http.StatusBadRequest, "app_id is invaild"
@@ -313,7 +313,7 @@ func (rsr RolesResource) Get(ctx context.Context, r *http.Request) (int, interfa
 		log.Debug(ret)
 		return http.StatusOK, ret
 	} else {
-		return GetRolesOfApp(mctx, appId)
+		return getRolesOfApp(mctx, appId)
 	}
 }
 
@@ -338,7 +338,8 @@ func (rsr RolesResource) Post(ctx context.Context, r *http.Request) (int, interf
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-	if _, err := role.GetRoleIdByName(mctx, roleReq.Name, appId); err != role.ErrRoleNotFound {
+	id, err := role.GetRoleIdByName(mctx, roleReq.Name, appId)
+	if err != role.ErrRoleNotFound && id >= 1{
 		return http.StatusConflict, err
 	}
 	secret := r.Header.Get("secret")
@@ -407,7 +408,7 @@ func (rr RoleResource) Post(ctx context.Context, r *http.Request) (int, interfac
 		u := getCurrentUser(ctx)
 		ok, mType := role.IsUserInAppAdminRole(mctx, u, appId)
 		if !(ok && mType == group.ADMIN) {
-			return http.StatusForbidden, "only the admin of the root role can create role"
+			return http.StatusForbidden, "only the admin of the root role can update role"
 		}
 	} else {
 		theApp, err := app.GetApp(mctx, appId)
@@ -573,7 +574,6 @@ func (rmr RoleMemberResource) Put(ctx context.Context, r *http.Request) (int, in
 		if err := g.AddMember(mctx, u, mrole); err != nil {
 			panic(err)
 		}
-
 	}
 	return http.StatusOK, "member added"
 }

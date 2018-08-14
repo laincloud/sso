@@ -30,7 +30,7 @@ func CreateAppDefaultRole(ctx *models.Context, appId int, roleName string, fullN
 }
 
 func DeleteAppRole(ctx *models.Context, appId int) (*app.App, error) {
-	return SetAppRole(ctx, appId, -1)
+	return SetAppRole(ctx, -1, appId)
 }
 
 func SetAppRole(ctx *models.Context, roleId int, appId int) (*app.App, error) {
