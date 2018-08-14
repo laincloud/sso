@@ -205,3 +205,18 @@ func callPostApplicationHandle (th *TestHelper, id string, action string) (int, 
 	defer aMock.restore()
 	return ApplicationHandle{}.Post(th.Ctx, r)
 }
+
+func createApp(th *TestHelper) (int, interface{}){
+	r, _ := http.NewRequest("POST", "http://sso.example.com/api/apps",
+		strings.NewReader(`{"fullname": "app1", "redirect_uri": "https://example.com"}`))
+	return AppsResource{}.Post(th.Ctx, r)
+}
+
+
+
+
+func createRootRole(th *TestHelper) (int, interface{}){
+	r, _ := http.NewRequest("POST", "http://sso.example.com/api/app_roles",
+		strings.NewReader(`{"app_id": 1, "role_name": "role1"}`))
+	return AppRoleResource{}.Post(th.Ctx, r)
+}
