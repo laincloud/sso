@@ -52,6 +52,7 @@ type App struct {
 	Updated      string
 }
 
+
 func (a *App) SecretString() string {
 	return a.Secret
 }
@@ -74,6 +75,16 @@ func (a *App) GetUserData() interface{} {
 	return nil
 }
 
+func UpdateApp(ctx *models.Context, app *App) (*App, error) {
+	_, err := ctx.DB.Exec("UPDATE app SET fullname=?, redirect_uri=? WHERE id=?", app.FullName, app.RedirectUri, app.Id)
+	if err != nil {
+		log.Debug(err)
+		return nil, err
+	}
+	return GetApp(ctx, app.Id)
+}
+
+
 func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	secret := app.Secret
 	if len(secret) == 0 {
@@ -88,45 +99,43 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	result, err := tx.Exec("INSERT INTO app (fullname, secret, redirect_uri) "+
 		"VALUES (?, ?, ?)", app.FullName, secret, app.RedirectUri)
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 	groupName := fmt.Sprintf(".app-%d", id)
 	groupFullName := fmt.Sprintf("App %d Admin Group", id)
 	g, err := group.CreateGroup(ctx, &group.Group{Name: groupName, FullName: groupFullName})
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	if _, err = tx.Exec("UPDATE app SET admin_group_id=? WHERE id=?",
 		g.Id, id); err != nil {
-		tx.Commit()
-		return nil, err
-	}
-	if err = tx.Commit(); err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
 	if err = g.AddMember(ctx, owner, group.ADMIN); err != nil {
+		tx.Rollback()
 		return nil, err
 	}
-
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
 	app, err = GetApp(ctx, int(id))
 	if err != nil {
 		return nil, err
 	}
 
 	return app, nil
-}
-
-func ListApps(ctx *models.Context) ([]App, error) {
-	apps := []App{}
-	err := ctx.DB.Select(&apps, "SELECT * FROM app")
-	return apps, err
 }
 
 func ListAppsByAdminGroupIds(ctx *models.Context, groupIds []int) ([]App, error) {
@@ -149,9 +158,9 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	} else if err != nil {
 		return nil, err
 	}
-
 	return &app, nil
 }
+
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 	log.Debug("AppNameExist: %s", appName)
@@ -165,4 +174,15 @@ func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 	} else {
 		return true, nil
 	}
+}
+
+type AppInfo struct {
+	Id       int     `json:"id"`
+	FullName string  `json:"fullname"`
+}
+
+func ListApps(ctx *models.Context) ([]AppInfo, error) {
+	apps := []AppInfo{}
+	err := ctx.DB.Select(&apps, "SELECT id, fullname FROM app")
+	return apps, err
 }
