@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
+	"github.com/laincloud/sso/ssolib/models/application"
+	"github.com/laincloud/sso/ssolib/models/role"
 )
 
 var (
@@ -39,6 +41,8 @@ func NewTestHelper(t *testing.T) *TestHelper {
 	group.EnableNestedGroup()
 	group.InitDatabase(mctx)
 	oauth2.InitDatabase(mctx)
+	application.InitDatabase(mctx)
+	role.InitDatabase(mctx)
 
 	th := &TestHelper{
 		T:   t,

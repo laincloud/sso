@@ -44,6 +44,7 @@ func GetTestMysqlDSN() string {
 	return mysqlDSN
 }
 
+
 func NewTestHelper(t *testing.T) TestHelper {
 	log.EnableDebug()
 	mysqlDSN := GetTestMysqlDSN()
