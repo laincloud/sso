@@ -29,6 +29,7 @@ type UserBackend interface {
 	UserSubToId(sub string) (int, error)
 
 	GetUserByFeature(string) (User, error)
+	GetUserByEmail(string) (User, error)
 	GetUser(id int) (User, error)
 
 	AuthPassword(sub, password string) (bool, error)
