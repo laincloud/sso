@@ -47,6 +47,8 @@ func TestPostGroupShouldCreateANewGroupWithCurrentUserAsAdmin(t *testing.T) {
 	}()
 
 	code, resp = GroupResource{}.Get(th.Ctx, r)
+	t.Log(code)
+	t.Log(resp)
 	assert.Equal(t, code, http.StatusOK, fmt.Sprint(resp))
 	gwm, ok := resp.(*GroupWithMembers)
 	assert.True(t, ok)
@@ -55,7 +57,7 @@ func TestPostGroupShouldCreateANewGroupWithCurrentUserAsAdmin(t *testing.T) {
 	assert.Equal(t, []MemberRole{MemberRole{Name: "testuser", Role: "admin"}}, gwm.Members)
 }
 
-func TestPostGroupsShouldFailWith403WhenOAuth2ScopeHasNoWriteGroups(t *testing.T) {
+func TestPostGroupsShouldFailWith401WhenOAuth2ScopeHasNoWriteGroups(t *testing.T) {
 	// FIXME: complete the test
 	th := NewTestHelper(t)
 
@@ -63,7 +65,7 @@ func TestPostGroupsShouldFailWith403WhenOAuth2ScopeHasNoWriteGroups(t *testing.T
 	th.loginWithScope("testuser", "")
 
 	code, _ := callPostGroups(th)
-	assert.Equal(t, http.StatusForbidden, code)
+	assert.Equal(t, http.StatusUnauthorized, code)
 }
 
 func TestDeleteGroupShouldWork(t *testing.T) {
