@@ -35,7 +35,7 @@ type TestHelper struct {
 func GetTestMysqlDSN() string {
 	mysqlDSN := os.Getenv("TEST_MYSQL_DSN")
 	if mysqlDSN == "" {
-		mysqlDSN = "test:test@tcp(127.0.0.1:32771)/sso_test"
+		mysqlDSN = "test:test@tcp(127.0.0.1:3306)/sso_test"
 	} else {
 		if !strings.HasSuffix(mysqlDSN, "_test") {
 			log.Fatal("Database must end with _test")
