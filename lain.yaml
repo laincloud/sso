@@ -3,7 +3,7 @@ appname: sso
 build:
   base: laincloud/centos-lain:20180103
   prepare:
-    version: 201801041503
+    version: 20180810
     script:
       - yum -y update
       - yum -y install unzip
