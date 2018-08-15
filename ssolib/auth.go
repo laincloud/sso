@@ -21,7 +21,6 @@ import (
 var loginTemplate *template.Template
 
 func init() {
-	os.Setenv("TEMPLATES_PATH","/Users/yixinf-o/go/src/github.com/laincloud/sso/templates")
 	templatesPath := os.Getenv("TEMPLATES_PATH")
 	if templatesPath == "" {
 		templatesPath = "./templates"

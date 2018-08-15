@@ -222,9 +222,9 @@ func FinishApplication (ctx *models.Context, id int, status string, commitEmail 
 
 func GetApplications(ctx *models.Context, email string, status string, from int, to int) ([]Application, int, error) {
 	applications := []Application{}
-	var total []int
+	var total *int
 	if status != "" {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application WHERE applicant_email=? AND status=?", email, status)
+		err := ctx.DB.Select(total, "SELECT count(*) FROM application WHERE applicant_email=? AND status=?", email, status)
 		if err != nil {
 			return nil, -1, err
 		}
@@ -233,7 +233,7 @@ func GetApplications(ctx *models.Context, email string, status string, from int,
 			return nil, -1, err
 		}
 	}else {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application WHERE applicant_email=?", email)
+		err := ctx.DB.Select(total, "SELECT count(*) FROM application WHERE applicant_email=?", email)
 		if err != nil {
 			return nil, -1, err
 		}
@@ -247,15 +247,14 @@ func GetApplications(ctx *models.Context, email string, status string, from int,
 		a.ParseTarget()
 		Applications = append(Applications, a)
 	}
-
-	return Applications, total[0], nil
+	return Applications, *total, nil
 }
 
 func GetAllApplications(ctx *models.Context, status string, from int, to int) ([]Application, int, error) {
 	applications := []Application{}
-	var total []int
+	var total *int
 	if status != "" {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application WHERE status=?", status)
+		err := ctx.DB.Select(total, "SELECT count(*) FROM application WHERE status=?", status)
 		if err != nil {
 			return nil, -1, err
 		}
@@ -264,7 +263,7 @@ func GetAllApplications(ctx *models.Context, status string, from int, to int) ([
 			return nil, -1, err
 		}
 	}else {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application")
+		err := ctx.DB.Select(total, "SELECT count(*) FROM application")
 		if err != nil {
 			return nil, -1, err
 		}
@@ -279,7 +278,7 @@ func GetAllApplications(ctx *models.Context, status string, from int, to int) ([
 		Applications = append(Applications, a)
 	}
 
-	return Applications, total[0], nil
+	return Applications, *total, nil
 }
 
 
