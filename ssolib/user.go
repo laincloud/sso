@@ -35,53 +35,57 @@ func (ug *UserWithGroups) MarshalJSON() ([]byte, error) {
 	return []byte(ns), err
 }
 
+func getUsers(ctx context.Context, r *http.Request) (int, interface{}) {
+	err := requireScope(ctx, "read:user")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	mctx := getModelContext(ctx)
+	u :=getCurrentUser(ctx)
+	adminsGroup, err := group.GetGroupByName(mctx, "admins")
+	if err != nil {
+		panic(err)
+	}
+	isAdmin, _, _ := adminsGroup.GetMember(mctx, u)
+	ub := getUserBackend(ctx)
+	// FIXME 增加一个参数，以防数据库里条目过多
+	users, err := ub.ListUsers(ctx)
+	if err != nil {
+		panic(err)
+	}
+	userIds := make([]int, len(users))
+	for i, u := range users {
+		userIds[i] = u.GetId()
+	}
+	groupMap, err := group.GetGroupsOfUserByIds(mctx, userIds)
+	if err != nil {
+		panic(err)
+	}
+	results := make([]*UserWithGroups, len(users))
+	for i, u := range users {
+		groups := make([]string, 0)
+		if gs, ok := groupMap[u.GetId()]; ok {
+			for _, g := range gs {
+				groups = append(groups, g.Name)
+			}
+		}
+		var profile iuser.UserProfile
+		if isAdmin {
+			profile = u.GetProfile()
+		} else {
+			profile = u.GetPublicProfile()
+		}
+		ug := &UserWithGroups{
+			User:   profile,
+			Groups: groups,
+		}
+		results[i] = ug
+	}
+	return http.StatusOK, results
+}
+
 func (s *Server) UsersList(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-	status, obj := requireScope(ctx, "read:user", func(u iuser.User) (int, interface{}) {
-		mctx := getModelContext(ctx)
-
-		adminsGroup, err := group.GetGroupByName(mctx, "admins")
-		if err != nil {
-			panic(err)
-		}
-		isAdmin, _, _ := adminsGroup.GetMember(mctx, u)
-
-		ub := getUserBackend(ctx)
-		// FIXME 增加一个参数，以防数据库里条目过多
-		users, err := ub.ListUsers(ctx)
-		if err != nil {
-			panic(err)
-		}
-		userIds := make([]int, len(users))
-		for i, u := range users {
-			userIds[i] = u.GetId()
-		}
-		groupMap, err := group.GetGroupsOfUserByIds(mctx, userIds)
-		if err != nil {
-			panic(err)
-		}
-
-		results := make([]*UserWithGroups, len(users))
-		for i, u := range users {
-			groups := make([]string, 0)
-			if gs, ok := groupMap[u.GetId()]; ok {
-				for _, g := range gs {
-					groups = append(groups, g.Name)
-				}
-			}
-			var profile iuser.UserProfile
-			if isAdmin {
-				profile = u.GetProfile()
-			} else {
-				profile = u.GetPublicProfile()
-			}
-			ug := &UserWithGroups{
-				User:   profile,
-				Groups: groups,
-			}
-			results[i] = ug
-		}
-		return http.StatusOK, results
-	})
+	status, obj := getUsers(ctx, r)
 	w.WriteHeader(status)
 	b, err := json.Marshal(obj)
 	if err != nil {
@@ -182,14 +186,23 @@ type UserResource struct {
 	server.BaseResource
 }
 
+//this api will return both ldap groups and database groups, but if database=true, only database groups will be returned.
+//in database, both ldap groups and database groups exist and ldap groups' backend=1, database groups' backend=0
 func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	username := server.Params(ctx, "username")
 	if username == "" {
 		return http.StatusBadRequest, "username not given"
 	}
-
+	if err := r.ParseForm(); err != nil {
+		log.Debug(err)
+		return http.StatusBadRequest, err
+	}
+	databaseOnly := r.Form.Get("database")
+	database := false
+	if databaseOnly == "true" {
+		database = true
+	}
 	mctx := getModelContext(ctx)
-
 	ub := getUserBackend(ctx)
 	u, err := ub.GetUserByName(username)
 	if err != nil {
@@ -198,12 +211,20 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 		}
 		panic(err)
 	}
-
 	gs, err := group.GetGroupsOfUser(mctx, u)
 	if err != nil {
 		panic(err)
 	}
-
+	if database {
+		ggs := []group.Group{}
+		for _, g := range gs {
+			//database groups' type = 0, ldap groups' type = 1
+			if g.GroupType == 0 {
+				ggs = append(ggs,g)
+			}
+		}
+		gs = ggs
+	}
 	groups := make([]string, len(gs))
 	for i, g := range gs {
 		groups[i] = g.Name
@@ -237,45 +258,44 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 }
 
 func (ur UserResource) Delete(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireScope(ctx, "write:user", func(currentUser iuser.User) (int, interface{}) {
-		username := params(ctx, "username")
-		if username == "" {
-			return http.StatusBadRequest, "username not give"
-		}
+	err := requireScope(ctx, "write:user")
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	username := params(ctx, "username")
+	if username == "" {
+		return http.StatusBadRequest, "username not give"
+	}
+	mctx := getModelContext(ctx)
+	ub := getUserBackend(ctx)
+	u, err := ub.GetUserByName(username)
+	if err != nil {
+		panic(err)
+	} else if u == nil {
+		return http.StatusNotFound, "no such user"
+	}
+	adminsGroup, err := group.GetGroupByName(mctx, "admins")
+	if err != nil {
+		panic(err)
+	}
+	ok, _, _ := adminsGroup.GetMember(mctx, getCurrentUser(ctx))
+	if !ok {
+		return http.StatusForbidden, "have no permission"
+	}
 
-		mctx := getModelContext(ctx)
-		ub := getUserBackend(ctx)
-		u, err := ub.GetUserByName(username)
-		if err != nil {
-			panic(err)
-		} else if u == nil {
-			return http.StatusNotFound, "no such user"
-		}
+	err = group.RemoveUserFromAllGroups(mctx, u)
+	if err != nil {
+		panic(err)
+	}
 
-		adminsGroup, err := group.GetGroupByName(mctx, "admins")
-		if err != nil {
-			panic(err)
-		}
+	err = ub.DeleteUser(u)
+	if err != nil {
+		// since some backend delete user means delete user from group
+		log.Debug(err)
+		return http.StatusNoContent, "User deleted from groups but " + err.Error()
+	}
 
-		ok, _, _ := adminsGroup.GetMember(mctx, currentUser)
-		if !ok {
-			return http.StatusForbidden, "have no permission"
-		}
-
-		err = group.RemoveUserFromAllGroups(mctx, u)
-		if err != nil {
-			panic(err)
-		}
-
-		err = ub.DeleteUser(u)
-		if err != nil {
-			// since some backend delete user means delete user from group
-			log.Debug(err)
-			return http.StatusNoContent, "User deleted from groups but " + err.Error()
-		}
-
-		return http.StatusNoContent, "User deleted"
-	})
+	return http.StatusNoContent, "User deleted"
 }
 
 type MeResource struct {
@@ -305,8 +325,11 @@ func GetUserWithGroups(ctx context.Context, u iuser.User) *UserWithGroups {
 }
 
 func (mr MeResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
-	return requireLogin(ctx, func(u iuser.User) (int, interface{}) {
-		ret := GetUserWithGroups(ctx, u)
-		return http.StatusOK, ret
-	})
+	err := requireLogin(ctx)
+	if err != nil {
+		return http.StatusUnauthorized, err
+	}
+	u := getCurrentUser(ctx)
+	ret := GetUserWithGroups(ctx, u)
+	return http.StatusOK, ret
 }
