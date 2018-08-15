@@ -402,7 +402,7 @@ FullName|app的名称|是|string||
 **接口地址及请求方式**
 
 ```
-PUT /api/app/:id
+PUT /api/apps/:id
 
 body ：
 {
@@ -449,7 +449,7 @@ redirect_uri|重定向uri|是|string|
 **接口地址及请求方式**
 
 ```
-GET /api/app/:id
+GET /api/apps/:id
 
 ```
 
