@@ -27,8 +27,17 @@ func (b *TestBackend) UserSubToId(sub string) (ret int, err error) {
 	return
 }
 
-func (b *TestBackend) GetUserByFeature(string) (ret iuser.User, err error) {
-	return
+func (b *TestBackend) GetUserByFeature(email string) (ret iuser.User, err error) {
+	return b.GetUserByEmail(email)
+}
+
+func (b *TestBackend) GetUserByEmail(email string) (iuser.User, error) {
+	for _, v := range b.users {
+		if v.Email == email {
+			return v, nil
+		}
+	}
+	return nil, iuser.ErrUserNotFound
 }
 
 func (b *TestBackend) GetUser(id int) (ret iuser.User, err error) {
