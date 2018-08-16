@@ -114,21 +114,13 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 		return nil, err
 	}
 
-	if _, err = tx.Exec("UPDATE app SET admin_group_id=?, admin_role_id=? WHERE id=?",
-		g.Id, g.Id, id); err != nil {
+	if _, err = tx.Exec("UPDATE app SET admin_group_id=? WHERE id=?",
+		g.Id, id); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
 	if err = g.AddMember(ctx, owner, group.ADMIN); err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	defaultName := app.FullName + "-sys"
-	_, err = tx.Exec(
-		"INSERT INTO role (id, name, fullname, app_id) VALUES (?, ?, ?, ?)",
-		g.Id, defaultName, defaultName, id)
-	if err != nil {
 		tx.Rollback()
 		return nil, err
 	}
