@@ -60,41 +60,31 @@ func (a *Application) MarshalJson() ([]byte, error) {
 }
 
 type TargetContent struct {
-	Name string `json:"name"`
+	Id int `json:"id"`
 	Role string `json:"role"`
-	AppId int `json:"app_id"`
+	Name string `json:"name"`
+	AppName string `json:"app_name"`
 }
-
-type TargetStrOfGroup struct {
-	GroupName string
-	Role string
-}
-
-type TargetStrOfRole struct {
-	AppId int
-	RoleName string
-	Role    string
-}
-
-
 
 func (a *Application) ParseTarget() {
 	if a.TargetContent == nil && a.TargetStr !="" {
 		if a.TargetType == "role" {
-			var temp TargetStrOfRole
+			var temp TargetContent
 			json.Unmarshal([]byte(a.TargetStr), &(temp))
 			a.TargetContent= &TargetContent{
-				temp.RoleName,
+				temp.Id,
 				temp.Role,
-				temp.AppId,
+				temp.Name,
+				temp.AppName,
 			}
 		} else if a.TargetType == "group" {
-			var temp TargetStrOfGroup
+			var temp TargetContent
 			json.Unmarshal([]byte(a.TargetStr), &(temp))
 			a.TargetContent= &TargetContent{
-				temp.GroupName,
+				temp.Id,
 				temp.Role,
-				0,
+				temp.Name,
+				"",
 			}
 		}
 	}
@@ -111,23 +101,6 @@ func (a *Application) ParseOprEmail(emails []string) {
 	}
 }
 
-
-func TransferTargetStr (target TargetContent, targetType string) interface{}{
-	if targetType == "group" {
-		return TargetStrOfGroup {
-			GroupName: target.Name,
-			Role: target.Role,
-		}
-	} else if targetType == "role" {
-		return TargetStrOfRole {
-			AppId: target.AppId,
-			RoleName:    target.Name,
-			Role:    target.Role,
-		}
-	}
-	return nil
-}
-
 type PendingApplication struct {
 	Id            int    `json:"id"`
 	ApplicationId int    `db:"application_id" json:"application_id"`
@@ -137,14 +110,14 @@ type PendingApplication struct {
 }
 
 
-func GetPendingApplicationByEmail(ctx *models.Context, email string, from int, to int) ([]PendingApplication,int, error) {
+func GetPendingApplicationByEmail(ctx *models.Context, oprEmail string, from int, to int) ([]PendingApplication,int, error) {
 	applicationstatus := []PendingApplication{}
 	var total []int
-	err := ctx.DB.Select(&total, "SELECT count(*) FROM pending_application WHERE operator_email=?", email)
+	err := ctx.DB.Select(&total, "SELECT count(*) FROM pending_application WHERE operator_email=?", oprEmail)
 	if err != nil {
 		return nil, -1, err
 	}
-	err = ctx.DB.Select(&applicationstatus, "SELECT * FROM pending_application WHERE operator_email=? ORDER BY created DESC LIMIT ?, ?", email, from, to - from + 1)
+	err = ctx.DB.Select(&applicationstatus, "SELECT * FROM pending_application WHERE operator_email=? ORDER BY created DESC LIMIT ?, ?", oprEmail, from, to - from + 1)
 	if err != nil {
 		return nil, -1, err
 	}
@@ -166,8 +139,7 @@ func GetPendingApplicationByApplicationId(ctx *models.Context, id int) ([]Pendin
 func CreateApplication (mctx *models.Context, newApp *Application, adminEmails []string) (*Application, error) {
 	log.Debug("CreateApplication")
 	tx := mctx.DB.MustBegin()
-	str := TransferTargetStr(*newApp.TargetContent, newApp.TargetType)
-	t, err:= json.Marshal(str)
+	t, err:= json.Marshal(newApp.TargetContent)
 	if err != nil {
 		return nil, err
 	}
@@ -219,23 +191,32 @@ func FinishApplication (ctx *models.Context, id int, status string, commitEmail 
 }
 
 
-
 func GetApplications(ctx *models.Context, email string, status string, from int, to int) ([]Application, int, error) {
 	applications := []Application{}
-	var total []int
+	var total int
 	if status != "" {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application WHERE applicant_email=? AND status=?", email, status)
+		rows, err := ctx.DB.Query("SELECT count(*) FROM application WHERE applicant_email=? AND status=?", email, status)
 		if err != nil {
 			return nil, -1, err
+		}
+		for rows.Next() {
+			if err = rows.Scan(&total); err != nil {
+				return nil, -1, err
+			}
 		}
 		err = ctx.DB.Select(&applications, "SELECT * FROM application WHERE applicant_email=? AND status=? ORDER BY created DESC LIMIT ?, ?", email, status, from, to - from + 1)
 		if err != nil {
 			return nil, -1, err
 		}
 	}else {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application WHERE applicant_email=?", email)
+		rows, err := ctx.DB.Query("SELECT count(*) FROM application WHERE applicant_email=?", email)
 		if err != nil {
 			return nil, -1, err
+		}
+		for rows.Next() {
+			if err = rows.Scan(&total); err != nil {
+				return nil, -1, err
+			}
 		}
 		err = ctx.DB.Select(&applications, "SELECT * FROM application WHERE applicant_email=? ORDER BY created DESC LIMIT ?, ?", email, from, to - from + 1)
 		if err != nil {
@@ -248,25 +229,35 @@ func GetApplications(ctx *models.Context, email string, status string, from int,
 		Applications = append(Applications, a)
 	}
 
-	return Applications, total[0], nil
+	return Applications, total, nil
 }
 
 func GetAllApplications(ctx *models.Context, status string, from int, to int) ([]Application, int, error) {
 	applications := []Application{}
-	var total []int
+	var total int
 	if status != "" {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application WHERE status=?", status)
+		rows, err := ctx.DB.Query("SELECT count(*) FROM application WHERE status=?", status)
 		if err != nil {
 			return nil, -1, err
+		}
+		for rows.Next() {
+			if err = rows.Scan(&total); err != nil {
+				return nil, -1, err
+			}
 		}
 		err = ctx.DB.Select(&applications, "SELECT * FROM application WHERE status=? ORDER BY created DESC LIMIT ?, ?",status, from, to - from + 1)
 		if err != nil {
 			return nil, -1, err
 		}
 	}else {
-		err := ctx.DB.Select(&total, "SELECT count(*) FROM application")
+		rows, err := ctx.DB.Query("SELECT count(*) FROM application")
 		if err != nil {
 			return nil, -1, err
+		}
+		for rows.Next() {
+			if err = rows.Scan(&total); err != nil {
+				return nil, -1, err
+			}
 		}
 		err = ctx.DB.Select(&applications, "SELECT * FROM application ORDER BY created DESC LIMIT ?, ?", from, to - from + 1)
 		if err != nil {
@@ -279,7 +270,7 @@ func GetAllApplications(ctx *models.Context, status string, from int, to int) ([
 		Applications = append(Applications, a)
 	}
 
-	return Applications, total[0], nil
+	return Applications, total, nil
 }
 
 
