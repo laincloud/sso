@@ -180,3 +180,14 @@ func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 		return true, nil
 	}
 }
+
+type AppInfo struct {
+	Id       int     `json:"id"`
+	FullName string  `json:"fullname"`
+}
+
+func ListApps(ctx *models.Context) ([]AppInfo, error) {
+	apps := []AppInfo{}
+	err := ctx.DB.Select(&apps, "SELECT id, fullname FROM app")
+	return apps, err
+}
