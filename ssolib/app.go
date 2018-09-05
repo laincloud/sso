@@ -176,7 +176,7 @@ func (ar AppResource) Put(ctx context.Context, r *http.Request) (int, interface{
 	case appSpec.FullName == "" && appSpec.RedirectUri == "": {
 		return http.StatusOK, oldApp
 	}
-	case appSpec.FullName != "": {
+	case appSpec.FullName != "" && appSpec.RedirectUri =="": {
 		if err := ValidateFullName(appSpec.FullName); err != nil {
 			return http.StatusBadRequest, err
 		}
@@ -189,7 +189,7 @@ func (ar AppResource) Put(ctx context.Context, r *http.Request) (int, interface{
 		}
 		appSpec.RedirectUri = oldApp.RedirectUri
 	}
-	case appSpec.RedirectUri != "": {
+	case appSpec.RedirectUri != "" && appSpec.FullName =="": {
 		if err := ValidateURI(appSpec.RedirectUri); err != nil {
 			return http.StatusBadRequest, err
 		}
@@ -206,7 +206,7 @@ func (ar AppResource) Put(ctx context.Context, r *http.Request) (int, interface{
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
-		if nameExist {
+		if nameExist && appSpec.FullName != oldApp.FullName{
 			return http.StatusBadRequest, errors.New("app name exists!")
 		}
 	}
