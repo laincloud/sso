@@ -123,7 +123,6 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 		return nil, err
 	}
 
-	// todo add first role for this app zhiwang-test-sys
 	if _, err = tx.Exec("INSERT INTO role (id, name, fullname, app_id) VALUES (?, ?, ?, ?)",
 		g.Id, app.FullName+"-sys", app.FullName+"-sys", id); err != nil {
 		tx.Rollback()
