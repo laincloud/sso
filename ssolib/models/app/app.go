@@ -52,7 +52,6 @@ type App struct {
 	Updated      string
 }
 
-
 func (a *App) SecretString() string {
 	return a.Secret
 }
@@ -84,7 +83,6 @@ func UpdateApp(ctx *models.Context, app *App) (*App, error) {
 	return GetApp(ctx, app.Id)
 }
 
-
 func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 	secret := app.Secret
 	if len(secret) == 0 {
@@ -114,8 +112,8 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 		return nil, err
 	}
 
-	if _, err = tx.Exec("UPDATE app SET admin_group_id=? WHERE id=?",
-		g.Id, id); err != nil {
+	if _, err = tx.Exec("UPDATE app SET admin_group_id=?, admin_role_id=? WHERE id=?",
+		g.Id, g.Id, id); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -124,6 +122,14 @@ func CreateApp(ctx *models.Context, app *App, owner iuser.User) (*App, error) {
 		tx.Rollback()
 		return nil, err
 	}
+
+	// todo add first role for this app zhiwang-test-sys
+	if _, err = tx.Exec("INSERT INTO role (id, name, fullname, app_id) VALUES (?, ?, ?, ?)",
+		g.Id, app.FullName+"-sys", app.FullName+"-sys", id); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
@@ -157,7 +163,6 @@ func GetApp(ctx *models.Context, id int) (*App, error) {
 	}
 	return &app, nil
 }
-
 
 func AppNameExist(ctx *models.Context, appName string) (bool, error) {
 	log.Debug("AppNameExist: %s", appName)
