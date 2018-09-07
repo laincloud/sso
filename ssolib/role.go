@@ -11,10 +11,10 @@ import (
 	"github.com/mijia/sweb/server"
 	"golang.org/x/net/context"
 
+	"github.com/laincloud/sso/ssolib/models"
 	"github.com/laincloud/sso/ssolib/models/app"
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/role"
-	"github.com/laincloud/sso/ssolib/models"
 )
 
 type Role struct {
@@ -287,7 +287,7 @@ func (rsr RolesResource) Get(ctx context.Context, r *http.Request) (int, interfa
 			memList := []RoleMember{}
 			for _, gM := range rM.Members {
 				var sType string
-				if rM.Type == group.ADMIN {
+				if gM.Role == group.ADMIN {
 					sType = "admin"
 				} else {
 					sType = "normal"
@@ -317,8 +317,6 @@ func (rsr RolesResource) Get(ctx context.Context, r *http.Request) (int, interfa
 	}
 }
 
-
-
 type RoleReq struct {
 	AppId  int    `json:"app_id"`
 	Name   string `json:"name"`
@@ -339,7 +337,7 @@ func (rsr RolesResource) Post(ctx context.Context, r *http.Request) (int, interf
 		return http.StatusBadRequest, err
 	}
 	id, err := role.GetRoleIdByName(mctx, roleReq.Name, appId)
-	if err != role.ErrRoleNotFound && id >= 1{
+	if err != role.ErrRoleNotFound && id >= 1 {
 		return http.StatusConflict, err
 	}
 	secret := r.Header.Get("secret")
@@ -480,6 +478,7 @@ type RoleMemberResource struct {
 type RoleMemberType struct {
 	MemberType string `json:"type"`
 }
+
 //add  member to role
 func (rmr RoleMemberResource) Put(ctx context.Context, r *http.Request) (int, interface{}) {
 	mctx := getModelContext(ctx)
