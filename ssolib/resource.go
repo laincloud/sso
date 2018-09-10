@@ -4,17 +4,17 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/deckarep/golang-set"
 	"github.com/mijia/sweb/form"
 	"github.com/mijia/sweb/log"
 	"github.com/mijia/sweb/server"
-	"github.com/deckarep/golang-set"
 	"golang.org/x/net/context"
 
 	"github.com/laincloud/sso/ssolib/models"
+	"github.com/laincloud/sso/ssolib/models/app"
 	"github.com/laincloud/sso/ssolib/models/group"
 	"github.com/laincloud/sso/ssolib/models/role"
 	"github.com/laincloud/sso/ssolib/utils"
-	"github.com/laincloud/sso/ssolib/models/app"
 )
 
 type ResourcesResource struct {
@@ -41,7 +41,7 @@ func getResourceByClient(secret string, mctx *models.Context, app *app.App, retT
 			}
 			return http.StatusOK, rrs
 		}
-	case "raw" :
+	case "raw":
 		{
 			rs, err := role.GetAllResources(mctx, app.Id)
 			log.Debug(rs, err)
@@ -51,7 +51,8 @@ func getResourceByClient(secret string, mctx *models.Context, app *app.App, retT
 			}
 			return http.StatusOK, rs
 		}
-	default : return http.StatusBadRequest, "type is not defined"
+	default:
+		return http.StatusBadRequest, "type is not defined"
 	}
 }
 
@@ -69,7 +70,7 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 		return http.StatusBadRequest, err
 	}
 	mctx := getModelContext(ctx)
-	theApp, err := app.GetApp(mctx,appId)
+	theApp, err := app.GetApp(mctx, appId)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -112,7 +113,8 @@ func (rsr ResourcesResource) Get(ctx context.Context, r *http.Request) (int, int
 				}
 				return http.StatusOK, rs
 			}
-		default : return http.StatusBadRequest, "type is not defined"
+		default:
+			return http.StatusBadRequest, "type is not defined"
 		}
 	} else {
 		return getResourceByClient(secret, mctx, theApp, retType)
@@ -165,44 +167,47 @@ func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, in
 		}
 	}
 	switch action {
-	case "add": {
-		if secret != "" {
-			name = u.GetName()
-		} else {
-			name = theApp.FullName
+	case "add":
+		{
+			if secret != "" {
+				name = theApp.FullName
+			} else {
+				name = u.GetName()
+			}
+			newResources := parseAddResource(resourceReqs.Resources, appId, name)
+			err := role.CreateResources(mctx, newResources)
+			if err != nil {
+				return http.StatusBadRequest, err
+			}
+			return http.StatusOK, "add Resources successfully"
 		}
-		newResources := parseAddResource(resourceReqs.Resources, appId, name)
-		err := role.CreateResources(mctx, newResources)
-		if err != nil {
-			return http.StatusBadRequest, err
+	case "update":
+		{
+			if !checkIfResourcesInOneApp(mctx, resourceReqs.Resources, appId) {
+				return http.StatusBadRequest, "invaild resource ids"
+			}
+			newResources := parseUpdateResource(resourceReqs.Resources)
+			err := role.UpdateResources(mctx, newResources)
+			if err != nil {
+				return http.StatusBadRequest, err
+			}
+			return http.StatusOK, "update Resources successfully"
 		}
-		return http.StatusOK, "add Resources successfully"
+	case "delete":
+		{
+			if !checkIfResourcesInOneApp(mctx, resourceReqs.Resources, appId) {
+				return http.StatusBadRequest, "invaild resource ids"
+			}
+			ids := []int{}
+			for _, resourceReq := range resourceReqs.Resources {
+				ids = append(ids, resourceReq.Id)
+			}
+			err := role.DeleteResources(mctx, ids)
+			if err != nil {
+				return http.StatusUnauthorized, err
+			}
+			return http.StatusNoContent, "delete resources successfully"
 		}
-	case "update": {
-		if !checkIfResourcesInOneApp(mctx, resourceReqs.Resources, appId) {
-			return http.StatusBadRequest, "invaild resource ids"
-		}
-		newResources := parseUpdateResource(resourceReqs.Resources)
-		err := role.UpdateResources(mctx, newResources)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-		return http.StatusOK, "update Resources successfully"
-	}
-	case "delete": {
-		if !checkIfResourcesInOneApp(mctx, resourceReqs.Resources, appId) {
-			return http.StatusBadRequest, "invaild resource ids"
-		}
-		ids := []int{}
-		for _,resourceReq := range resourceReqs.Resources {
-			ids = append(ids, resourceReq.Id)
-		}
-		err := role.DeleteResources(mctx, ids)
-		if err != nil {
-			return http.StatusUnauthorized, err
-		}
-		return http.StatusNoContent, "delete resources successfully"
-	}
 	default:
 		return http.StatusBadRequest, "action should be add, delete or update"
 	}
@@ -210,7 +215,7 @@ func (rsr ResourcesResource) Post(ctx context.Context, r *http.Request) (int, in
 
 func checkIfResourcesInOneApp(mctx *models.Context, resourcesReq []Resource, appId int) bool {
 	resourceIds := []int{}
-	for _,resourceReq := range resourcesReq {
+	for _, resourceReq := range resourcesReq {
 		resourceIds = append(resourceIds, resourceReq.Id)
 	}
 	resources, err := role.GetResourcesByIds(mctx, resourceIds)
@@ -236,7 +241,7 @@ func checkIfResourcesInOneApp(mctx *models.Context, resourcesReq []Resource, app
 
 func parseUpdateResource(resourcesReq []Resource) []role.Resource {
 	newResources := []role.Resource{}
-	for _,resourceReq := range resourcesReq {
+	for _, resourceReq := range resourcesReq {
 		tmp := role.Resource{
 			Id:          resourceReq.Id,
 			Name:        resourceReq.Name,
@@ -250,7 +255,7 @@ func parseUpdateResource(resourcesReq []Resource) []role.Resource {
 
 func parseAddResource(resourcesReq []Resource, appId int, name string) []role.Resource {
 	newResources := []role.Resource{}
-	for _,resourceReq := range resourcesReq {
+	for _, resourceReq := range resourcesReq {
 		tmp := role.Resource{
 			Name:        resourceReq.Name,
 			Description: resourceReq.Description,
@@ -283,7 +288,6 @@ func (rr ResourceResource) Get(ctx context.Context, r *http.Request) (int, inter
 	}
 	return http.StatusOK, resource
 }
-
 
 func (rr ResourceResource) Post(ctx context.Context, r *http.Request) (int, interface{}) {
 	mctx := getModelContext(ctx)
@@ -387,7 +391,7 @@ type RoleResourceResource struct {
 }
 
 type RoleResourceReq struct {
-	Action string
+	Action    string
 	Resources []int `json:"resource_list"`
 }
 
@@ -449,20 +453,20 @@ func (rrr RoleResourceResource) Post(ctx context.Context, r *http.Request) (int,
 	}
 	switch req.Action {
 	case "add":
-		if err := role.AddRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err!= nil {
+		if err := role.AddRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err != nil {
 			return http.StatusBadRequest, err
 		}
-		return  http.StatusOK, nil
+		return http.StatusOK, nil
 	case "delete":
-		if err := role.RemoveRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err!= nil {
+		if err := role.RemoveRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err != nil {
 			return http.StatusBadRequest, err
 		}
 		return http.StatusNoContent, nil
 	case "update":
-		if err := role.UpdateRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err!= nil {
+		if err := role.UpdateRoleResource(mctx, id, utils.ToInts(reqSet.ToSlice())); err != nil {
 			return http.StatusBadRequest, err
 		}
-		return  http.StatusOK, nil
+		return http.StatusOK, nil
 	default:
 		return http.StatusBadRequest, "action should be add, delete or update"
 	}
