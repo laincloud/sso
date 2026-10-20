@@ -41,6 +41,7 @@ func (te TokenEndpoint) Post(ctx context.Context, r *http.Request) (int, interfa
 
 		if hasOpenidScope(resp.Output) {
 			setIDTokenInResponseOutput(ctx, resp, r.Form.Get("client_id"), userId, "", "")
+		SyncAuthEvent(r.Form.Get("client_id"), userId, string(grantType), resp.Output)
 		}
 	}
 	if resp.IsError && resp.InternalError != nil {
