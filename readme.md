@@ -16,7 +16,7 @@ SSO，Single Sign On系统，是一种身份验证和授权系统，使应用程
 
 ## install
 ```sh
-   go get github.com/laincloud.sso
+   go get github.com/laincloud/sso
 ```
 
 ## usage
