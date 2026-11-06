@@ -507,34 +507,54 @@ func GetGroupMemberRole(ctx *models.Context, fatherId int, sonId int) (role Memb
 
 func ListFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
 	fathers := []int{}
-	query, args, err := sqlx.In("SELECT father_id FROM groupdag WHERE son_id IN(?)", sonIds)
-	if err != nil {
-		return nil, err
-	}
-	query = ctx.DB.Rebind(query)
-	err = ctx.DB.Select(&fathers, query, args...)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
+	for i := 0; ; i++ {
+		partFathers := make([]int, 0, MAXREQUEST)
+		finished := i * MAXREQUEST
+		remain := len(sonIds) - finished
+		processing := finished + MAXREQUEST
+		if remain <= MAXREQUEST {
+			processing = finished + remain
 		}
-		return nil, err
+		query, args, err := sqlx.In("SELECT father_id FROM groupdag WHERE son_id IN(?)", sonIds[finished:processing])
+		if err != nil {
+			return nil, err
+		}
+		query = ctx.DB.Rebind(query)
+		err = ctx.DB.Select(&partFathers, query, args...)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+		fathers = append(fathers, partFathers...)
+		if remain <= MAXREQUEST {
+			break
+		}
 	}
 	return fathers, nil
 }
 
 func ListAdminFathersOfGroups(ctx *models.Context, sonIds []int) ([]int, error) {
 	fathers := []int{}
-	query, args, err := sqlx.In("SELECT father_id FROM groupdag WHERE son_id IN(?) AND role=?", sonIds, ADMIN)
-	if err != nil {
-		return nil, err
-	}
-	query = ctx.DB.Rebind(query)
-	err = ctx.DB.Select(&fathers, query, args...)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
+	for i := 0; ; i++ {
+		partFathers := make([]int, 0, MAXREQUEST)
+		finished := i * MAXREQUEST
+		remain := len(sonIds) - finished
+		processing := finished + MAXREQUEST
+		if remain <= MAXREQUEST {
+			processing = finished + remain
 		}
-		return nil, err
+		query, args, err := sqlx.In("SELECT father_id FROM groupdag WHERE role=? AND son_id IN(?)", ADMIN, sonIds[finished:processing])
+		if err != nil {
+			return nil, err
+		}
+		query = ctx.DB.Rebind(query)
+		err = ctx.DB.Select(&partFathers, query, args...)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+		fathers = append(fathers, partFathers...)
+		if remain <= MAXREQUEST {
+			break
+		}
 	}
 	return fathers, nil
 }

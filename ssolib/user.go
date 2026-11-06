@@ -18,6 +18,11 @@ type UserWithGroups struct {
 	Groups []string          `json:"groups"`
 }
 
+type UserWithGroupInfo struct {
+	User   iuser.UserProfile `json:"user,omitempty"`
+	Groups []GroupInfo          `json:"groups"`
+}
+
 // 该函数必须是 *UserWithGroups, 否则会产生递归调用，即
 // 绝对不可写成 func (ug UserWithGroups) MarshalJSON() ([]byte, error) {}
 // 即想要调用也必须传入 *UserWithGroups
@@ -186,8 +191,11 @@ type UserResource struct {
 	server.BaseResource
 }
 
-//this api will return both ldap groups and database groups, but if database=true, only database groups will be returned.
-//in database, both ldap groups and database groups exist and ldap groups' backend=1, database groups' backend=0
+type GroupInfo struct {
+	Fullname string `json:"fullname"`
+	Id	int `json:"id"`
+}
+
 func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface{}) {
 	username := server.Params(ctx, "username")
 	if username == "" {
@@ -218,7 +226,6 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 	if database {
 		ggs := []group.Group{}
 		for _, g := range gs {
-			//database groups' type = 0, ldap groups' type = 1
 			if g.GroupType == 0 {
 				ggs = append(ggs,g)
 			}
@@ -229,7 +236,12 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 	for i, g := range gs {
 		groups[i] = g.Name
 	}
-
+	groupInfo := make([]GroupInfo, len(gs))
+	if database {
+		for i, g := range gs {
+			groupInfo[i] = GroupInfo{g.FullName, g.Id}
+		}
+	}
 	var profile iuser.UserProfile
 	currentUser := getCurrentUser(ctx)
 	isAdmin := false
@@ -249,6 +261,13 @@ func (ur UserResource) Get(ctx context.Context, r *http.Request) (int, interface
 		profile = u.GetPublicProfile()
 	} else {
 		profile = u.GetProfile()
+	}
+	if database {
+		resp := &UserWithGroupInfo{
+			User:   profile,
+			Groups: groupInfo,
+		}
+		return http.StatusOK, resp
 	}
 	ret := &UserWithGroups{
 		User:   profile,

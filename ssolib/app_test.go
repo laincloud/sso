@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strings"
 	"github.com/laincloud/sso/Godeps/_workspace/src/github.com/stretchr/testify/assert"
-	"github.com/laincloud/sso/ssolib/models/iuser"
-	"github.com/laincloud/sso/ssolib/models/testbackend"
 )
 
 func TestAppResource_Put(t *testing.T) {
@@ -91,16 +89,4 @@ func createApp2(th *TestHelper) (int, interface{}){
 	r, _ := http.NewRequest("POST", "http://sso.example.com/api/apps",
 		strings.NewReader(`{"fullname": "app2", "redirect_uri": "https://example.com"}`))
 	return AppsResource{}.Post(th.Ctx, r)
-}
-
-func createTestUserWithEmail(th *TestHelper, username string) iuser.User {
-	err := testBack.CreateUser(&testbackend.TestUser{
-		Name: username,
-		PasswordHash: []byte("test"),
-		Email: username+"@example.com",
-	}, true)
-	assert.Nil(th.T, err)
-	u, err := testBack.GetUserByName(username)
-	assert.Nil(th.T, err)
-	return u
 }
